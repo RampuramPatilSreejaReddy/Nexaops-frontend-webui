@@ -80,26 +80,10 @@ async function seedDatabase() {
       if (parseInt(statusDist[0].cnt) <= 1) {
         await client.query(`
           UPDATE jobs SET
-            status = s.new_status,
-            has_ai_fix = (s.new_status = 'failed')
-          FROM (
-            SELECT id,
-              CASE ((ROW_NUMBER() OVER (ORDER BY created_at, id)) % 10)
-                WHEN 1 THEN 'failed'
-                WHEN 2 THEN 'failed'
-                WHEN 3 THEN 'warning'
-                WHEN 4 THEN 'running'
-                WHEN 5 THEN 'success'
-                WHEN 6 THEN 'success'
-                WHEN 7 THEN 'success'
-                WHEN 8 THEN 'running'
-                WHEN 9 THEN 'warning'
-                ELSE 'success'
-              END as new_status
-            FROM jobs
-          ) s
-          WHERE jobs.id = s.id
+            status = (ARRAY['failed','failed','warning','running','success','success','success','running','warning','success'])[floor(random()*10+1)],
+            has_ai_fix = false
         `)
+        await client.query(`UPDATE jobs SET has_ai_fix = true WHERE status = 'failed'`)
         console.log('[NexaOps] ✅ Distributed job statuses across failed/running/success/warning')
       }
       console.log('[NexaOps] ✅ NeonDB ready —', existing[0].cnt, 'jobs in database')
