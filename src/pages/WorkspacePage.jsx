@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react'
+import { getJobs } from '../api/jobs.js'
 import {
   Activity, AlertTriangle, ArrowUpRight, BookOpen, Bot, Check, CheckCircle2, ChevronRight,
   Clock3, Copy, Database, FileText, GitBranch, KeyRound, Network, PlugZap,
@@ -15,7 +16,7 @@ const PAGE_CONFIG = {
 }
 
 // ── INCIDENT TABLE DATA ────────────────────────────────────────────────────
-const INCIDENTS = [
+const INCIDENTS_FALLBACK = [
   {
     id: 'INC-2048', url: '#inc-2048',
     workflow: 'Customer Master Synchronization', jobName: 'customer-sync-api',
@@ -73,7 +74,7 @@ const INCIDENTS = [
 ]
 
 const DATA = {
-  incidents: INCIDENTS,
+  incidents: INCIDENTS_FALLBACK,
   brain: [
     { id: 'INC-4788', name: 'BigQuery JOIN type mismatch', detail: 'CAST(customer_id AS STRING) applied', tag: '96% match', state: 'Verified', age: '02 Apr 2025', tone: 'green' },
     { id: 'INC-4620', name: 'Informatica null primary key', detail: 'NULL filter added to source qualifier', tag: '89% match', state: 'Verified', age: '12 Jan 2025', tone: 'green' },
@@ -94,7 +95,7 @@ const DATA = {
 const badge = { red: 'bg-red-50 text-red-700 border-red-200', amber: 'bg-amber-50 text-amber-700 border-amber-200', green: 'bg-green-50 text-green-700 border-green-200', blue: 'bg-blue-50 text-blue-700 border-blue-200', slate: 'bg-slate-100 text-slate-600 border-slate-200' }
 const ROW_ICONS = { incidents: ShieldCheck, brain: FileText, integrations: Database, runbooks: TerminalSquare }
 
-export default function WorkspacePage({ pageKey }) {
+export default function WorkspacePage({ pageKey, onOpenJob, approvedJobNames }) {
   const config = PAGE_CONFIG[pageKey]
   const Icon = config.icon
   const [query, setQuery] = useState('')
@@ -110,7 +111,7 @@ export default function WorkspacePage({ pageKey }) {
 
   // ── Incidents gets its own dedicated table view ─────────────
   if (pageKey === 'incidents') {
-    return <IncidentsPage config={config} />
+    return <IncidentsPage config={config} onOpenJob={onOpenJob} approvedJobNames={approvedJobNames} />
   }
 
   const sourceRows = pageKey === 'brain' ? [...knowledgeEntries, ...DATA.brain] : DATA[pageKey]
@@ -148,7 +149,45 @@ const PRIORITY_STYLE = {
   P3: 'bg-blue-50 text-blue-700 border-blue-200',
 }
 
-function IncidentsPage({ config }) {
+const MOCK_RESPONDERS = [
+  { assignee: 'Meera Rajan', assigneeInitials: 'MR', team: 'Data Engineering', manager: 'Suresh Iyer' },
+  { assignee: 'Arjun Kumar', assigneeInitials: 'AK', team: 'Platform Engineering', manager: 'Divya Nair' },
+  { assignee: 'Priya Shah', assigneeInitials: 'PS', team: 'Analytics', manager: 'Rahul Mehta' },
+]
+
+const jobToIncident = (job, index = 0, approvedJobNames = {}) => {
+  const responder = MOCK_RESPONDERS[index % MOCK_RESPONDERS.length]
+  const isApproved = !!approvedJobNames[job.name]
+  const isHardFailure = job.status === 'failed'
+  return {
+  id: `INC-${job.id}`,
+  url: '#',
+  workflow: job.workflow || job.type || 'Unknown workflow',
+  jobName: job.name,
+  assignee: responder.assignee,
+  assigneeInitials: responder.assigneeInitials,
+  team: job.team || responder.team,
+  manager: responder.manager,
+    status: isApproved ? 'Resolved' : (isHardFailure ? 'Investigating' : 'Monitoring'),
+  priority: job.sla_breach ? 'P1' : 'P2',
+  tone: isApproved ? 'green' : (job.sla_breach ? 'red' : 'amber'),
+  createdAt: job.start || '—',
+  updatedAt: job.end || job.start || '—',
+    detail: isHardFailure
+      ? `${job.type || job.technology || 'Unknown'} failure`
+      : `${job.type || job.technology || 'Unknown'} — SLA breach, job did not fail outright`,
+  }
+}
+
+function IncidentsPage({ config, onOpenJob, approvedJobNames }) {
+  const [incidentRows, setIncidentRows] = useState(INCIDENTS_FALLBACK)
+  useEffect(() => {
+    getJobs().then(({ data }) => {
+      const jobs = data?.jobs || []
+      const incidentJobs = jobs.filter(j => j.status === 'failed' || j.sla_breach === true)
+      if (incidentJobs.length) setIncidentRows(incidentJobs.map((job, i) => jobToIncident(job, i, approvedJobNames)))
+    }).catch(() => {})
+  }, [approvedJobNames])
   const [query, setQuery] = useState('')
   const [statusFilter, setStatusFilter] = useState('All')
   const [priorityFilter, setPriorityFilter] = useState('All')
@@ -156,7 +195,7 @@ function IncidentsPage({ config }) {
   const statuses = ['All', 'Investigating', 'AI Analysis', 'Monitoring', 'Resolved', 'Closed']
   const priorities = ['All', 'P1', 'P2', 'P3']
 
-  const rows = INCIDENTS.filter(r => {
+  const rows = incidentRows.filter(r => {
     const q = query.toLowerCase()
     const matchQ = !q || `${r.id} ${r.workflow} ${r.jobName} ${r.assignee} ${r.team} ${r.manager} ${r.detail}`.toLowerCase().includes(q)
     const matchS = statusFilter === 'All' || r.status === statusFilter
@@ -165,9 +204,9 @@ function IncidentsPage({ config }) {
   })
 
   const counts = {
-    active:   INCIDENTS.filter(r => ['Investigating','AI Analysis','Monitoring'].includes(r.status)).length,
-    awaiting: INCIDENTS.filter(r => r.status === 'Investigating').length,
-    p1:       INCIDENTS.filter(r => r.priority === 'P1').length,
+    active:   incidentRows.filter(r => ['Investigating','AI Analysis','Monitoring'].includes(r.status)).length,
+    awaiting: incidentRows.filter(r => r.status === 'Investigating').length,
+    p1:       incidentRows.filter(r => r.priority === 'P1').length,
   }
 
   return (
@@ -305,7 +344,7 @@ function IncidentsPage({ config }) {
                   <td className="px-4 py-3.5 whitespace-nowrap">
                     <a
                       href={row.url}
-                      onClick={e => e.preventDefault()}
+                      onClick={e => { e.preventDefault(); onOpenJob?.(row.jobName) }}
                       className="font-mono font-semibold text-blue-600 hover:text-blue-800 hover:underline underline-offset-2 transition-colors"
                     >
                       {row.id}
@@ -384,7 +423,7 @@ function IncidentsPage({ config }) {
 
         {/* Table footer */}
         <div className="flex items-center justify-between px-4 py-3 border-t border-slate-100 bg-slate-50/50">
-          <span className="text-[11px] text-slate-400">Showing {rows.length} of {INCIDENTS.length} incidents</span>
+          <span className="text-[11px] text-slate-400">Showing {rows.length} of {incidentRows.length} incidents</span>
           <div className="flex items-center gap-1">
             <button className="h-7 px-2.5 rounded border border-slate-200 text-[11px] text-slate-500 bg-white hover:border-slate-300 disabled:opacity-40" disabled>← Prev</button>
             <span className="h-7 px-2.5 rounded border border-blue-200 bg-blue-50 text-[11px] font-semibold text-blue-700 grid place-items-center">1</span>
