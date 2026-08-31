@@ -75,17 +75,14 @@ async function seedDatabase() {
       }
       console.log('[NexaOps] ✅ Seeded', JOBS.length, 'jobs into NeonDB')
     } else {
-      // Migrate: if all jobs are the same status, distribute realistically
-      const { rows: statusDist } = await client.query('SELECT COUNT(DISTINCT status) as cnt FROM jobs')
-      if (parseInt(statusDist[0].cnt) <= 1) {
-        await client.query(`
-          UPDATE jobs SET
-            status = (ARRAY['failed','failed','warning','running','success','success','success','running','warning','success'])[floor(random()*10+1)],
-            has_ai_fix = false
-        `)
-        await client.query(`UPDATE jobs SET has_ai_fix = true WHERE status = 'failed'`)
-        console.log('[NexaOps] ✅ Distributed job statuses across failed/running/success/warning')
-      }
+      // Always distribute statuses on startup for realistic dev data
+      await client.query(`
+        UPDATE jobs SET
+          status = (ARRAY['failed','failed','warning','running','success','success','success','running','warning','success'])[floor(random()*10+1)],
+          has_ai_fix = false
+      `)
+      await client.query(`UPDATE jobs SET has_ai_fix = true WHERE status = 'failed'`)
+      console.log('[NexaOps] ✅ Distributed job statuses across failed/running/success/warning')
       console.log('[NexaOps] ✅ NeonDB ready —', existing[0].cnt, 'jobs in database')
     }
   } catch (e) {
