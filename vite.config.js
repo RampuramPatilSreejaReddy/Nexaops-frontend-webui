@@ -296,11 +296,11 @@ function nexaOpsPlugin() {
       // Seed DB on startup
       seedDatabase()
 
-      // Start the API server on port 8000
+      // Start the API server on port 8090
       const apiServer = http.createServer(routeApi)
-      apiServer.listen(8000, () => console.log('[NexaOps] 🚀 API server running on http://localhost:8000'))
+      apiServer.listen(8090, () => console.log('[NexaOps] 🚀 API server running on http://localhost:8090'))
       apiServer.on('error', e => {
-        if (e.code === 'EADDRINUSE') console.warn('[NexaOps] ⚠️  Port 8000 already in use — API server not started')
+        if (e.code === 'EADDRINUSE') console.warn('[NexaOps] ⚠️  Port 8090 already in use — API server not started')
         else console.error('[NexaOps] API server error:', e.message)
       })
 
