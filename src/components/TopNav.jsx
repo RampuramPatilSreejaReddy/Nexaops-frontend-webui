@@ -204,7 +204,7 @@ export default function TopNav({ user, onSignIn, onSignOut, theme, onToggleTheme
                 <NotifItem color="#3B82F6" title="AI fix ready for approval" sub="BigQuery schema mismatch · INC-2048" />
                 <NotifItem color="#10B981" title="Daily report generated" sub="Dashboard · Available now" />
               </div>
-              <button style={{ width: '100%', borderTop: '1px solid #F1F5F9', padding: '10px', fontSize: 11, fontWeight: 600, color: '#2563EB', background: 'transparent', border: 'none', cursor: 'pointer', borderTop: '1px solid #F1F5F9' }}>
+              <button style={{ width: '100%', borderTop: '1px solid #F1F5F9', padding: '10px', fontSize: 11, fontWeight: 600, color: '#2563EB', background: 'transparent', border: 'none', cursor: 'pointer' }}>
                 View all activity →
               </button>
             </div>
