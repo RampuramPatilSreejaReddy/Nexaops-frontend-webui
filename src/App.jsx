@@ -56,6 +56,8 @@ export default function App() {
           localStorage.removeItem('nexaops_user')
           setUser(null)
         }}
+        theme={theme}
+        onToggleTheme={() => setTheme(v => v === 'dark' ? 'light' : 'dark')}
       />
 
       <div style={{ display: 'flex', flex: 1, minHeight: 0, overflow: 'hidden' }}>

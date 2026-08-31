@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react'
-import { Bell, Command, LogIn, Search, ShieldCheck, UserRound, X } from 'lucide-react'
+import { Bell, Command, LogIn, Moon, Search, ShieldCheck, Sun, UserRound, X } from 'lucide-react'
 
 const S = {
   nav: {
@@ -115,7 +115,7 @@ const S = {
   },
 }
 
-export default function TopNav({ user, onSignIn, onSignOut }) {
+export default function TopNav({ user, onSignIn, onSignOut, theme, onToggleTheme }) {
   const [notifOpen, setNotifOpen] = useState(false)
   const notifRef = useRef(null)
 
@@ -161,6 +161,20 @@ export default function TopNav({ user, onSignIn, onSignOut }) {
           2 Incidents
         </div>
 
+        {/* Theme toggle */}
+        {onToggleTheme && (
+          <button
+            style={S.iconBtn}
+            onClick={onToggleTheme}
+            aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+            title={theme === 'dark' ? 'Light mode' : 'Dark mode'}
+            onMouseEnter={e => { e.currentTarget.style.background = 'rgba(71,85,105,0.4)'; e.currentTarget.style.color = '#E2E8F0' }}
+            onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#64748B' }}
+          >
+            {theme === 'dark' ? <Sun size={17} strokeWidth={1.8} /> : <Moon size={17} strokeWidth={1.8} />}
+          </button>
+        )}
+
         {/* Notifications */}
         <div ref={notifRef} style={{ position: 'relative' }}>
           <button
@@ -190,7 +204,7 @@ export default function TopNav({ user, onSignIn, onSignOut }) {
                 <NotifItem color="#3B82F6" title="AI fix ready for approval" sub="BigQuery schema mismatch · INC-2048" />
                 <NotifItem color="#10B981" title="Daily report generated" sub="Dashboard · Available now" />
               </div>
-              <button style={{ width: '100%', borderTop: '1px solid #F1F5F9', padding: '10px', fontSize: 11, fontWeight: 600, color: '#2563EB', background: 'transparent', border: 'none', cursor: 'pointer', borderTop: '1px solid #F1F5F9' }}>
+              <button style={{ width: '100%', borderTop: '1px solid #F1F5F9', padding: '10px', fontSize: 11, fontWeight: 600, color: '#2563EB', background: 'transparent', border: 'none', cursor: 'pointer' }}>
                 View all activity →
               </button>
             </div>
