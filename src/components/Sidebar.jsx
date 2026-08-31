@@ -92,8 +92,9 @@ const S = {
 }
 
 export default function Sidebar({ activePage, onNavigate, collapsed, onToggleCollapse, theme, onToggleTheme }) {
+  const d = theme === 'dark'
   return (
-    <aside style={S.aside(collapsed)}>
+    <aside style={{ ...S.aside(collapsed), background: d ? '#111827' : '#FFFFFF', borderRight: `1px solid ${d ? '#1E2D42' : '#E2E8F0'}` }}>
       {/* Header */}
       <div style={S.header(collapsed)}>
         {!collapsed && <span style={S.sectionLabel}>Navigation</span>}
@@ -101,7 +102,7 @@ export default function Sidebar({ activePage, onNavigate, collapsed, onToggleCol
           style={S.toggleBtn}
           onClick={onToggleCollapse}
           title={collapsed ? 'Expand' : 'Collapse'}
-          onMouseEnter={e => { e.currentTarget.style.background = '#F1F5F9'; e.currentTarget.style.color = '#475569' }}
+          onMouseEnter={e => { e.currentTarget.style.background = d ? '#1A2840' : '#F1F5F9'; e.currentTarget.style.color = d ? '#CBD5E1' : '#475569' }}
           onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#94A3B8' }}
         >
           <Menu size={16} />
@@ -114,12 +115,12 @@ export default function Sidebar({ activePage, onNavigate, collapsed, onToggleCol
         return (
           <button
             key={item.key}
-            style={S.navBtn(active, collapsed)}
+            style={{ ...S.navBtn(active, collapsed), background: active ? (d ? '#0F2347' : '#EFF6FF') : 'transparent', color: active ? (d ? '#93C5FD' : '#1D4ED8') : (d ? '#94A3B8' : '#64748B'), boxShadow: active ? (d ? 'inset 0 0 0 1px rgba(96,165,250,0.2)' : 'inset 0 0 0 1px rgba(96,165,250,0.25)') : 'none' }}
             onClick={() => onNavigate(item.key)}
             title={collapsed ? item.label : undefined}
             aria-current={active ? 'page' : undefined}
-            onMouseEnter={e => { if (!active) { e.currentTarget.style.background = '#F8FAFC'; e.currentTarget.style.color = '#334155' } }}
-            onMouseLeave={e => { if (!active) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#64748B' } }}
+            onMouseEnter={e => { if (!active) { e.currentTarget.style.background = d ? '#1A2840' : '#F8FAFC'; e.currentTarget.style.color = d ? '#CBD5E1' : '#334155' } }}
+            onMouseLeave={e => { if (!active) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = d ? '#94A3B8' : '#64748B' } }}
           >
             {active && <span style={S.activeBar} />}
             <item.icon size={17} strokeWidth={active ? 2.3 : 1.8} />
@@ -129,18 +130,18 @@ export default function Sidebar({ activePage, onNavigate, collapsed, onToggleCol
         )
       })}
 
-      <div style={S.divider(collapsed)} />
+      <div style={{ ...S.divider(collapsed), background: d ? '#1E2D42' : '#F1F5F9' }} />
 
       {BOTTOM.map(item => {
         const active = activePage === item.key
         return (
           <button
             key={item.key}
-            style={S.navBtn(active, collapsed)}
+            style={{ ...S.navBtn(active, collapsed), background: active ? (d ? '#0F2347' : '#EFF6FF') : 'transparent', color: active ? (d ? '#93C5FD' : '#1D4ED8') : (d ? '#94A3B8' : '#64748B'), boxShadow: active ? (d ? 'inset 0 0 0 1px rgba(96,165,250,0.2)' : 'inset 0 0 0 1px rgba(96,165,250,0.25)') : 'none' }}
             onClick={() => onNavigate(item.key)}
             title={collapsed ? item.label : undefined}
-            onMouseEnter={e => { if (!active) { e.currentTarget.style.background = '#F8FAFC'; e.currentTarget.style.color = '#334155' } }}
-            onMouseLeave={e => { if (!active) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#64748B' } }}
+            onMouseEnter={e => { if (!active) { e.currentTarget.style.background = d ? '#1A2840' : '#F8FAFC'; e.currentTarget.style.color = d ? '#CBD5E1' : '#334155' } }}
+            onMouseLeave={e => { if (!active) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = d ? '#94A3B8' : '#64748B' } }}
           >
             {active && <span style={S.activeBar} />}
             <item.icon size={17} strokeWidth={active ? 2.3 : 1.8} />
@@ -154,7 +155,7 @@ export default function Sidebar({ activePage, onNavigate, collapsed, onToggleCol
         style={S.themeBtn(collapsed)}
         onClick={onToggleTheme}
         title={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}
-        onMouseEnter={e => { e.currentTarget.style.background = '#F1F5F9'; e.currentTarget.style.color = '#475569' }}
+        onMouseEnter={e => { e.currentTarget.style.background = d ? '#1A2840' : '#F1F5F9'; e.currentTarget.style.color = d ? '#CBD5E1' : '#475569' }}
         onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#94A3B8' }}
       >
         {theme === 'dark' ? <Sun size={16} strokeWidth={1.8} /> : <Moon size={16} strokeWidth={1.8} />}
