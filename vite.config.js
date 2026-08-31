@@ -278,6 +278,17 @@ async function routeApi(req, res) {
     }
 
     // Not found
+    if (path === '/admin/fix-statuses' && method === 'GET') {
+      const client2 = new Client({ connectionString: loadEnv().DATABASE_URL, ssl: { rejectUnauthorized: false } })
+      await client2.connect()
+      try {
+        await client2.query(`UPDATE jobs SET status = (ARRAY['failed','failed','warning','running','success','success','success','running','warning','success'])[floor(random()*10+1)], has_ai_fix = false`)
+        await client2.query(`UPDATE jobs SET has_ai_fix = true WHERE status = 'failed'`)
+        const { rows } = await client2.query(`SELECT status, COUNT(*) as cnt FROM jobs GROUP BY status ORDER BY cnt DESC`)
+        json(res, { success: true, distribution: rows })
+      } finally { client2.end() }
+      return
+    }
     res.writeHead(404); res.end(JSON.stringify({ error: 'Not found' }))
 
   } catch (e) {
