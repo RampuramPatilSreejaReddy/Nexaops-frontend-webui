@@ -340,16 +340,8 @@ function nexaOpsPlugin() {
   return {
     name: 'nexaops-backend',
     async configureServer(server) {
-      // Seed DB on startup
-      seedDatabase()
-
-      // Start the API server on port 8000
-      const apiServer = http.createServer(routeApi)
-      apiServer.listen(8000, () => console.log('[NexaOps] 🚀 API server running on http://localhost:8000'))
-      apiServer.on('error', e => {
-        if (e.code === 'EADDRINUSE') console.warn('[NexaOps] ⚠️  Port 8000 already in use — API server not started')
-        else console.error('[NexaOps] API server error:', e.message)
-      })
+      // API server now runs separately via Python FastAPI (uvicorn main:app --reload)
+      // The chatbot below fetches context from http://localhost:8000 (Python backend)
 
       // ── Chatbot endpoint on port 5173 (/chat-api/message) ───────────────
       server.middlewares.use('/chat-api/message', async (req, res) => {
