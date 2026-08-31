@@ -16,6 +16,8 @@ export default function App() {
   })
   const [showSignIn, setShowSignIn] = useState(false)
   const [activePage, setActivePage] = useState('jobs')
+  const [pendingJobName, setPendingJobName] = useState(null)
+  const [approvedJobNames, setApprovedJobNames] = useState({})
   const [sidebarCollapsed, setSidebarCollapsed] = useState(
     () => localStorage.getItem('nexaops_sidebar_collapsed') === 'true'
   )
@@ -28,7 +30,13 @@ export default function App() {
     localStorage.setItem('nexaops_theme', theme)
     document.documentElement.classList.toggle('dark', theme === 'dark')
   }, [theme])
-
+  const openJobFromIncident = (jobName) => {
+    setPendingJobName(jobName)
+    setActivePage('jobs')
+  }
+  const markJobApproved = (jobName) => {
+    setApprovedJobNames(prev => ({ ...prev, [jobName]: true }))
+  }
   return (
     <div
       className={`app-theme ${theme === 'dark' ? 'dark' : ''}`}
@@ -71,10 +79,10 @@ export default function App() {
             flexDirection: 'column',
           }}
         >
-          {activePage === 'jobs'      && <JobStatus />}
+          {activePage === 'jobs'      && <JobStatus initialJobName={pendingJobName} onConsumeInitialJob={() => setPendingJobName(null)} onApprove={markJobApproved} />}
           {activePage === 'dashboard' && <Dashboard />}
           {['incidents', 'integrations'].includes(activePage) && (
-            <WorkspacePage pageKey={activePage} />
+            <WorkspacePage pageKey={activePage} onOpenJob={openJobFromIncident} approvedJobNames={approvedJobNames} />
           )}
         </main>
       </div>
