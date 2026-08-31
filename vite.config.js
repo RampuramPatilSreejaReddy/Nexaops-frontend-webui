@@ -75,6 +75,33 @@ async function seedDatabase() {
       }
       console.log('[NexaOps] ✅ Seeded', JOBS.length, 'jobs into NeonDB')
     } else {
+      // Migrate: if all jobs are the same status, distribute realistically
+      const { rows: statusDist } = await client.query('SELECT COUNT(DISTINCT status) as cnt FROM jobs')
+      if (parseInt(statusDist[0].cnt) <= 1) {
+        await client.query(`
+          UPDATE jobs SET
+            status = s.new_status,
+            has_ai_fix = (s.new_status = 'failed')
+          FROM (
+            SELECT id,
+              CASE ((ROW_NUMBER() OVER (ORDER BY created_at, id)) % 10)
+                WHEN 1 THEN 'failed'
+                WHEN 2 THEN 'failed'
+                WHEN 3 THEN 'warning'
+                WHEN 4 THEN 'running'
+                WHEN 5 THEN 'success'
+                WHEN 6 THEN 'success'
+                WHEN 7 THEN 'success'
+                WHEN 8 THEN 'running'
+                WHEN 9 THEN 'warning'
+                ELSE 'success'
+              END as new_status
+            FROM jobs
+          ) s
+          WHERE jobs.id = s.id
+        `)
+        console.log('[NexaOps] ✅ Distributed job statuses across failed/running/success/warning')
+      }
       console.log('[NexaOps] ✅ NeonDB ready —', existing[0].cnt, 'jobs in database')
     }
   } catch (e) {
