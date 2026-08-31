@@ -1,7 +1,8 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { createRoot } from 'react-dom/client'
-import { AlertCircle, ArrowLeft, CheckCircle2, CirclePlay, Code2, Database, Download, Edit3, FileText, Github, GitPullRequest, Mail, MapPin, Maximize2, Radio, RefreshCw, Search, SlidersHorizontal, Sparkles, Users, Wrench, X, Zap } from 'lucide-react'
+import { AlertCircle, ArrowLeft, Calendar, CheckCircle2, CirclePlay, Code2, Database, Download, Edit3, FileText, Github, GitPullRequest, Mail, MapPin, Maximize2, Radio, RefreshCw, Search, SlidersHorizontal, Sparkles, Users, Wrench, X, Zap } from 'lucide-react'
 import { getJobs, getResolution } from '../api/jobs.js'
+import Chatbot from '../components/Chatbot.jsx'
 
 function ResolutionDrawer({ job,onClose }) {
   const [sent,setSent] = useState(false), [view,setView] = useState(null), [aiCode,setAiCode] = useState(generatedCode)
@@ -145,7 +146,7 @@ const normalizeJob = (item, index = 0) => {
 }
 
 export default function JobStatus() {
-  const [jobs,setJobs] = useState(() => JOBS.map(normalizeJob)), [filter,setFilter] = useState('all'), [team,setTeam] = useState('All Teams'), [environment,setEnvironment] = useState('All Environments'), [period,setPeriod] = useState(''), [dateOpen,setDateOpen] = useState(false), [startDate,setStartDate] = useState('2024-05-20'), [endDate,setEndDate] = useState('2024-05-27'), [appliedRange,setAppliedRange] = useState(null), [query,setQuery] = useState(''), [job,setJob] = useState(null)
+  const [jobs,setJobs] = useState(() => JOBS.map(normalizeJob)), [filter,setFilter] = useState('all'), [team,setTeam] = useState('All Teams'), [environment,setEnvironment] = useState('All Environments'), [period,setPeriod] = useState(''), [dateOpen,setDateOpen] = useState(false), [startDate,setStartDate] = useState('2024-05-20'), [endDate,setEndDate] = useState('2024-05-27'), [appliedRange,setAppliedRange] = useState(null), [query,setQuery] = useState(''), [job,setJob] = useState(null), [chatOpen,setChatOpen] = useState(false)
   const resolutionCacheRef = useRef({})
   useEffect(() => { getJobs().then(({data}) => data?.jobs?.length && setJobs(data.jobs.map(normalizeJob))).catch(() => {}) }, [])
   const rows = useMemo(() => jobs.filter(item => (filter === 'all' || item.status === filter) && (team === 'All Teams' || item.team === team) && (!appliedRange || (datePart(item.startTimestamp) >= appliedRange.start && datePart(item.startTimestamp) <= appliedRange.end)) && `${item.workflow} ${item.name} ${item.type}`.toLowerCase().includes(query.toLowerCase())), [jobs,filter,team,appliedRange,query])
@@ -159,7 +160,7 @@ export default function JobStatus() {
     </>}
     <div className="mb-5 flex flex-wrap gap-5 border-b border-slate-200">{FILTERS.map(([key,label]) => { const count = key === 'all' ? jobs.length : counts[key] || 0; const refLabel = key === 'all' ? 'All Jobs' : key === 'success' ? 'Completed' : key === 'warning' ? 'SLA Risk' : label; return <button key={key} onClick={() => setFilter(key)} className={`-mb-px flex items-center gap-2 border-b-2 px-2.5 pb-3 text-[13px] font-semibold transition-colors ${filter === key ? 'border-[#2563eb] text-[#2563eb]' : 'border-transparent text-slate-500 hover:text-blue-600'}`}>{refLabel}<span className={`rounded-md px-2 py-0.5 text-[10px] ${filter === key ? 'bg-[#eaf2ff] text-[#2563eb]' : 'bg-slate-100 text-slate-500'}`}>{count}</span></button> })}</div>
     <section className="min-w-[900px] overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm"><table className="w-full border-collapse text-xs"><thead className="bg-slate-50"><tr>{['Workflow ↕','Job Name','Start Time ↕','End Time','Run Time','Status'].map(head => <th key={head} className="border-b border-slate-200 px-6 py-3.5 text-left text-[10px] font-bold uppercase tracking-wide text-slate-500">{head}</th>)}</tr></thead><tbody>{rows.map(item => <JobRow key={item.id} job={item} onOpen={setJob}/>)}</tbody></table>{!rows.length && <div className="py-12 text-center text-xs text-slate-400">No jobs found</div>}</section>
-    {job && <><div className="fixed inset-0 z-30 bg-slate-950/25" onClick={() => setJob(null)}/><FailedJobDetails job={job} onClose={() => setJob(null)} cache={resolutionCacheRef}/></>}
+    {job && <><div className="fixed inset-0 z-30 bg-slate-950/25" onClick={() => setJob(null)}/><FailedJobDetails job={job} onClose={() => setJob(null)} cache={resolutionCacheRef}/></> }<Chatbot open={chatOpen} setOpen={setChatOpen}/>
   </div>
 }
 
