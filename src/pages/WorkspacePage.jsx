@@ -160,7 +160,7 @@ const jobToIncident = (job, index = 0, approvedJobNames = {}) => {
   const isApproved = !!approvedJobNames[job.name]
   const isHardFailure = job.status === 'failed'
   return {
-  id: `INC-${job.id}`,
+  id: `INC-${job.id.slice(0, 8)}`,
   url: '#',
   workflow: job.workflow || job.type || 'Unknown workflow',
   jobName: job.name,

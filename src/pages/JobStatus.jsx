@@ -46,7 +46,7 @@ function FailedJobDetails({ job,onClose,cache,onApprove }) {
       return
     }
     setResolutionLoading(true)
-    getResolution(job.id).then(({ data }) => {
+    getResolution(job.id, force).then(({ data }) => {
       if (cache?.current) cache.current[job.id] = data
       setResolution(data)
       if (data?.code_fix) setAiCode(data.code_fix)
@@ -145,16 +145,19 @@ const normalizeJob = (item, index = 0) => {
   return { ...item, start, end, startTimestamp: timestampFor(startDate, start), endTimestamp: timestampFor(startDate, end), team: item.team || item.ownerTeam || FALLBACK_TEAMS[index % FALLBACK_TEAMS.length], environment: item.environment || item.env || FALLBACK_ENVIRONMENTS[index % FALLBACK_ENVIRONMENTS.length], jobDate: startDate }
 }
 
-export default function JobStatus({ initialJobName, onConsumeInitialJob, onApprove }) {
-  const [jobs,setJobs] = useState(() => JOBS.map(normalizeJob)), [filter,setFilter] = useState('all'), [team,setTeam] = useState('All Teams'), [environment,setEnvironment] = useState('All Environments'), [period,setPeriod] = useState(''), [dateOpen,setDateOpen] = useState(false), [startDate,setStartDate] = useState('2024-05-20'), [endDate,setEndDate] = useState('2024-05-27'), [appliedRange,setAppliedRange] = useState(null), [query,setQuery] = useState(''), [job,setJob] = useState(null), [chatOpen,setChatOpen] = useState(false)
-  const resolutionCacheRef = useRef({})
+export default function JobStatus({ initialJobName, onConsumeInitialJob, onApprove, resolutionCache }) {
+  const [jobs,setJobs] = useState(() => JOBS.map(normalizeJob)), [filter,setFilter] = useState('all'), [team,setTeam] = useState('All Teams'), [environment,setEnvironment] = useState('All Environments'), [period,setPeriod] = useState(''), [dateOpen,setDateOpen] = useState(false), [startDate,setStartDate] = useState('2024-05-20'), [endDate,setEndDate] = useState('2024-05-27'), [appliedRange,setAppliedRange] = useState(null), [query,setQuery] = useState(''), [job,setJob] = useState(null), [jobsLoaded,setJobsLoaded] = useState(false), [chatOpen,setChatOpen] = useState(false)
   useEffect(() => {
-    if (!initialJobName) return
+    if (!initialJobName || !jobsLoaded) return
     const match = jobs.find(j => j.name === initialJobName)
     if (match) setJob(match)
     onConsumeInitialJob?.()
-  }, [initialJobName, jobs])
-  useEffect(() => { getJobs().then(({data}) => data?.jobs?.length && setJobs(data.jobs.map(normalizeJob))).catch(() => {}) }, [])
+  }, [initialJobName, jobs, jobsLoaded])
+  useEffect(() => {
+    getJobs().then(({data}) => {
+      if (data?.jobs?.length) setJobs(data.jobs.map(normalizeJob))
+    }).catch(() => {}).finally(() => setJobsLoaded(true))
+  }, [])
   const rows = useMemo(() => jobs.filter(item => (filter === 'all' || item.status === filter) && (team === 'All Teams' || item.team === team) && (!appliedRange || (datePart(item.startTimestamp) >= appliedRange.start && datePart(item.startTimestamp) <= appliedRange.end)) && `${item.workflow} ${item.name} ${item.type}`.toLowerCase().includes(query.toLowerCase())), [jobs,filter,team,appliedRange,query])
   const counts = useMemo(() => jobs.reduce((total, item) => ({ ...total, [item.status]: (total[item.status] || 0) + 1 }), {}), [jobs])
   const rangeLabel = appliedRange ? `${new Date(`${appliedRange.start}T00:00:00`).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })} - ${new Date(`${appliedRange.end}T00:00:00`).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}` : 'Custom Range'
@@ -167,7 +170,8 @@ export default function JobStatus({ initialJobName, onConsumeInitialJob, onAppro
     <div className="mb-5 flex flex-wrap gap-5 border-b border-slate-200">{FILTERS.map(([key,label]) => { const count = key === 'all' ? jobs.length : counts[key] || 0; const refLabel = key === 'all' ? 'All Jobs' : key === 'success' ? 'Completed' : key === 'warning' ? 'SLA Risk' : label; return <button key={key} onClick={() => setFilter(key)} className={`-mb-px flex items-center gap-2 border-b-2 px-2.5 pb-3 text-[13px] font-semibold transition-colors ${filter === key ? 'border-[#2563eb] text-[#2563eb]' : 'border-transparent text-slate-500 hover:text-blue-600'}`}>{refLabel}<span className={`rounded-md px-2 py-0.5 text-[10px] ${filter === key ? 'bg-[#eaf2ff] text-[#2563eb]' : 'bg-slate-100 text-slate-500'}`}>{count}</span></button> })}</div>
     <section className="min-w-[900px] overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm"><table className="w-full border-collapse text-xs"><thead className="bg-slate-50"><tr>{['Workflow ↕','Job Name','Start Time ↕','End Time','Run Time','Status'].map(head => <th key={head} className="border-b border-slate-200 px-6 py-3.5 text-left text-[10px] font-bold uppercase tracking-wide text-slate-500">{head}</th>)}</tr></thead><tbody>{rows.map(item => <JobRow key={item.id} job={item} onOpen={setJob}/>)}</tbody></table>{!rows.length && <div className="py-12 text-center text-xs text-slate-400">No jobs found</div>}</section>
 
-    {job && <><div className="fixed inset-0 z-30 bg-slate-950/25" onClick={() => setJob(null)}/><FailedJobDetails job={job} onClose={() => setJob(null)} cache={resolutionCacheRef} onApprove={onApprove}/></>}<Chatbot open={chatOpen} setOpen={setChatOpen}/>
+    {initialJobName && !job && <div className="fixed inset-0 z-40 flex items-center justify-center bg-white"><div className="text-sm text-slate-500">Opening incident…</div></div>}
+    {job && <><div className="fixed inset-0 z-30 bg-slate-950/25" onClick={() => setJob(null)}/><FailedJobDetails job={job} onClose={() => setJob(null)} cache={resolutionCache} onApprove={onApprove}/></>}<Chatbot open={chatOpen} setOpen={setChatOpen}/>
   </div>
 }
 
