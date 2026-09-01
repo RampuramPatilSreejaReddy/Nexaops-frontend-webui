@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import TopNav from './components/TopNav.jsx'
 import Sidebar from './components/Sidebar.jsx'
 import JobStatus from './pages/JobStatus.jsx'
@@ -18,6 +18,7 @@ export default function App() {
   const [activePage, setActivePage] = useState('jobs')
   const [pendingJobName, setPendingJobName] = useState(null)
   const [approvedJobNames, setApprovedJobNames] = useState({})
+  const resolutionCacheRef = useRef({})
   const [sidebarCollapsed, setSidebarCollapsed] = useState(
     () => localStorage.getItem('nexaops_sidebar_collapsed') === 'true'
   )
@@ -81,7 +82,7 @@ export default function App() {
             flexDirection: 'column',
           }}
         >
-          {activePage === 'jobs'      && <JobStatus initialJobName={pendingJobName} onConsumeInitialJob={() => setPendingJobName(null)} onApprove={markJobApproved} />}
+          {activePage === 'jobs'      && <JobStatus initialJobName={pendingJobName} onConsumeInitialJob={() => setPendingJobName(null)} onApprove={markJobApproved} resolutionCache={resolutionCacheRef} />}
           {activePage === 'dashboard' && <Dashboard />}
           {['incidents', 'integrations'].includes(activePage) && (
             <WorkspacePage pageKey={activePage} onOpenJob={openJobFromIncident} approvedJobNames={approvedJobNames} />
