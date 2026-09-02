@@ -377,50 +377,37 @@ export default function JobStatus({ originPage = 'jobs', onNavigate, onApprove, 
       return
     }
     const decoded = decodeURIComponent(routeJobId)
-    const match = jobs.find(j => 
-      j.name?.toLowerCase() === decoded.toLowerCase() || 
+    const match = jobs.find(j =>
+      j.name?.toLowerCase() === decoded.toLowerCase() ||
       j.id?.toLowerCase() === decoded.toLowerCase()
     )
     if (match) {
       setJob(match)
       return
     }
+    // Immediately render a fallback job so the page doesn't stay blank while the API loads
+    const isSpark = decoded.toLowerCase().includes('spark') || decoded === 'spark-driver-failure'
+    const fallbackJob = normalizeJob({
+      id: isSpark ? 'SPARK-LIVE-001' : decoded,
+      name: isSpark ? 'spark-driver-failure' : decoded,
+      workflow: isSpark ? 'Spark Cluster Orchestration' : 'ETL Pipelines',
+      type: isSpark ? 'PySpark OCI FileSystem' : 'Pipeline Job',
+      start: '09:55:00',
+      runtime: '38m 24s',
+      status: 'failed',
+      cpu: 98,
+      sla_breach: true,
+      team: 'Data Engineering'
+    })
+    setJob(fallbackJob)
+    // Then refine with real API data if available
     getJobs({ flat: true }).then(({ data }) => {
-      const flatMatch = (data?.jobs || []).find(j => 
-        j.name?.toLowerCase() === decoded.toLowerCase() || 
+      const flatMatch = (data?.jobs || []).find(j =>
+        j.name?.toLowerCase() === decoded.toLowerCase() ||
         j.id?.toLowerCase() === decoded.toLowerCase()
       )
-      if (flatMatch) {
-        setJob(normalizeJob(flatMatch))
-      } else {
-        const isSpark = decoded.toLowerCase().includes('spark')
-        setJob(normalizeJob({
-          id: isSpark ? 'SPARK-LIVE-001' : decoded,
-          name: isSpark ? 'spark-driver-failure' : decoded,
-          workflow: isSpark ? 'Spark Cluster Orchestration' : 'ETL Pipelines',
-          type: isSpark ? 'PySpark OCI FileSystem' : 'Pipeline Job',
-          start: '09:55:00',
-          runtime: '38m 24s',
-          status: 'failed',
-          cpu: 98,
-          sla_breach: true,
-          team: 'Data Engineering'
-        }))
-      }
-    }).catch(() => {
-      setJob(normalizeJob({
-        id: 'SPARK-LIVE-001',
-        name: decoded,
-        workflow: 'Spark Cluster Orchestration',
-        type: 'PySpark OCI FileSystem',
-        start: '09:55:00',
-        runtime: '38m 24s',
-        status: 'failed',
-        cpu: 98,
-        sla_breach: true,
-        team: 'Data Engineering'
-      }))
-    })
+      if (flatMatch) setJob(normalizeJob(flatMatch))
+    }).catch(() => {})
   }, [routeJobId, jobs])
 
   const [summary, setSummary] = useState(null)
