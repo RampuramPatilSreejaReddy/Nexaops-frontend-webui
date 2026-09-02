@@ -187,19 +187,24 @@ function extractHistId(text) {
 }
 
 function buildJobMarkdown(job, repo) {
+  const jiraKey = job.jira || 'JIRA-1023'
+  const jiraUrl = `https://jira.atlassian.com/browse/${jiraKey}`
+  const isOk = job.status?.includes('Succeeded')
+  const isRun = job.status?.includes('Running')
+
   return (
     `⚙️ **Job History Details (${job.id})**\n\n` +
     `• **Job Name**: \`${job.jobName}\`\n` +
     `• **AI Status**: ⚡ \`${job.aiStatus}\`\n` +
-    `• **Execution Status**: ❌ \`${job.status}\`\n` +
+    `• **Execution Status**: ${isOk ? '✅' : isRun ? '🔵' : '❌'} \`${job.status}\`\n` +
     `• **Start Time**: ${job.startTime}\n` +
     `• **End Time**: ${job.endTime} (Duration: ${job.duration})\n` +
     `• **Environment**: \`${job.cluster}\`\n` +
     `• **Target Repository**: [${repo}](https://github.com/${repo})\n` +
     `• **Failure Symptom**: \`${job.symptom}\`\n` +
     `• **Root Cause (RCA)**: ${job.rca}\n` +
-    `• **Linked Jira Ticket**: \`${job.jira}\`\n` +
-    `• **Automated Remediation**: Proposed fix generated and available in target repository \`${repo}\`.`
+    `• **Linked Jira Ticket**: [${jiraKey}](${jiraUrl}) ↗\n` +
+    `• **Automated Remediation**: Proposed fix generated and available in target repository [${repo}](https://github.com/${repo}).`
   )
 }
 
