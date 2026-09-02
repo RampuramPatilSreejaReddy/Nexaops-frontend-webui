@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import { getJobs } from '../api/jobs.js'
+import SlaBreachDetail from '../components/SlaBreachDetail.jsx'
 import {
   Activity, AlertTriangle, ArrowUpRight, BookOpen, Bot, Check, CheckCircle2, ChevronRight,
   Clock3, Copy, Database, FileText, GitBranch, KeyRound, Network, PlugZap,
@@ -170,6 +171,10 @@ const jobToIncident = (job, index = 0, approvedJobNames = {}) => {
   manager: responder.manager,
     status: isApproved ? 'Resolved' : (isHardFailure ? 'Investigating' : 'Monitoring'),
   priority: job.sla_breach ? 'P1' : 'P2',
+  sla_breach: job.sla_breach,
+  runtime: job.runtime,
+  sla_target_mins: job.sla_target_mins,
+  sla_overdue_mins: job.sla_overdue_mins,
   tone: isApproved ? 'green' : (job.sla_breach ? 'red' : 'amber'),
   createdAt: job.start || '—',
   updatedAt: job.end || job.start || '—',
@@ -179,14 +184,35 @@ const jobToIncident = (job, index = 0, approvedJobNames = {}) => {
   }
 }
 
+function IncidentRowsSkeleton({ rows = 5 }) {
+  return <>
+    {Array.from({ length: rows }).map((_, i) => (
+      <tr key={i} className="animate-pulse border-b border-slate-100">
+        <td className="px-4 py-4"><div className="h-3 w-24 rounded bg-slate-200"/></td>
+        <td className="px-4 py-4"><div className="h-3 w-36 rounded bg-slate-200"/></td>
+        <td className="px-4 py-4"><div className="h-3 w-28 rounded bg-slate-200"/></td>
+        <td className="px-4 py-4"><div className="h-3 w-20 rounded bg-slate-200"/></td>
+        <td className="px-4 py-4"><div className="h-3 w-20 rounded bg-slate-200"/></td>
+        <td className="px-4 py-4"><div className="h-3 w-24 rounded bg-slate-200"/></td>
+        <td className="px-4 py-4"><div className="h-5 w-20 rounded-full bg-slate-200"/></td>
+        <td className="px-4 py-4"><div className="h-5 w-12 rounded-full bg-slate-200"/></td>
+        <td className="px-4 py-4"><div className="h-3 w-24 rounded bg-slate-200"/></td>
+        <td className="px-4 py-4"><div className="h-3 w-24 rounded bg-slate-200"/></td>
+      </tr>
+    ))}
+  </>
+}
+
 function IncidentsPage({ config, onOpenJob, approvedJobNames }) {
-  const [incidentRows, setIncidentRows] = useState(INCIDENTS_FALLBACK)
+  const [incidentRows, setIncidentRows] = useState([])
+  const [incidentsLoaded, setIncidentsLoaded] = useState(false)
+  const [slaDetailRow, setSlaDetailRow] = useState(null)
   useEffect(() => {
-    getJobs().then(({ data }) => {
+    getJobs({ flat: true }).then(({ data }) => {
       const jobs = data?.jobs || []
       const incidentJobs = jobs.filter(j => j.status === 'failed' || j.sla_breach === true)
       if (incidentJobs.length) setIncidentRows(incidentJobs.map((job, i) => jobToIncident(job, i, approvedJobNames)))
-    }).catch(() => {})
+    }).catch(() => {}).finally(() => setIncidentsLoaded(true))
   }, [approvedJobNames])
   const [query, setQuery] = useState('')
   const [statusFilter, setStatusFilter] = useState('All')
@@ -202,12 +228,17 @@ function IncidentsPage({ config, onOpenJob, approvedJobNames }) {
     const matchP = priorityFilter === 'All' || r.priority === priorityFilter
     return matchQ && matchS && matchP
   })
+  const failedIncidents = incidentRows.filter(row => row.status !== 'Monitoring')
+  const slaBreachIncidents = incidentRows.filter(row => row.status === 'Monitoring')
 
   const counts = {
     active:   incidentRows.filter(r => ['Investigating','AI Analysis','Monitoring'].includes(r.status)).length,
     awaiting: incidentRows.filter(r => r.status === 'Investigating').length,
     p1:       incidentRows.filter(r => r.priority === 'P1').length,
   }
+  const renderIncidentTable = (incidents, onRowOpen) => (
+    <div className="overflow-x-auto bg-white border border-slate-200 rounded-xl shadow-sm"><table className="w-full border-collapse text-xs min-w-[1100px]"><thead><tr className="bg-slate-50 border-b border-slate-200">{['Incident ID', 'Workflow Name', 'Failed Job', 'Assignee', 'Team', 'Manager / Reporting', 'Status', 'Priority', 'Created', 'Last Updated'].map(h => <th key={h} className="px-4 py-3 text-left text-[10px] font-bold uppercase tracking-wide text-slate-500 whitespace-nowrap">{h}</th>)}</tr></thead><tbody className="divide-y divide-slate-100">{!incidentsLoaded ? <IncidentRowsSkeleton/> : incidents.length === 0 ? <tr><td colSpan={10} className="py-12 text-center text-xs text-slate-400">No incidents match the selected filters.</td></tr> : incidents.map(row => <tr key={row.id} onClick={() => onRowOpen(row)} className={['cursor-pointer transition-colors hover:bg-slate-50/70 border-l-2', row.status === 'Investigating' ? 'border-l-red-400' : row.status === 'AI Analysis' ? 'border-l-violet-400' : row.status === 'Monitoring' ? 'border-l-blue-400' : 'border-l-transparent'].join(' ')}><td className="px-4 py-3.5 whitespace-nowrap"><a href={row.url} onClick={e => { e.preventDefault(); onRowOpen(row) }} className="font-mono font-semibold text-blue-600 hover:text-blue-800 hover:underline underline-offset-2 transition-colors">{row.id}</a></td><td className="px-4 py-3.5"><div className="font-medium text-slate-700 truncate max-w-[180px]" title={row.workflow}>{row.workflow}</div></td><td className="px-4 py-3.5"><div className="font-mono text-slate-600 text-[11px] truncate max-w-[160px]" title={row.jobName}>{row.jobName}</div><div className="text-[10px] text-slate-400 mt-0.5 truncate max-w-[160px]">{row.detail}</div></td><td className="px-4 py-3.5 whitespace-nowrap"><div className="flex items-center gap-2"><span className={['w-6 h-6 rounded-full grid place-items-center text-[9px] font-bold shrink-0', row.tone === 'red' ? 'bg-red-100 text-red-700' : row.tone === 'amber' ? 'bg-amber-100 text-amber-700' : row.tone === 'blue' ? 'bg-blue-100 text-blue-700' : 'bg-emerald-100 text-emerald-700'].join(' ')}>{row.assigneeInitials}</span><span className="text-slate-700 font-medium">{row.assignee}</span></div></td><td className="px-4 py-3.5 whitespace-nowrap"><span className="text-slate-600">{row.team}</span></td><td className="px-4 py-3.5 whitespace-nowrap"><span className="text-slate-600">{row.manager}</span></td><td className="px-4 py-3.5 whitespace-nowrap"><span className={['inline-flex items-center gap-1.5 px-2 py-1 rounded-md border text-[10px] font-semibold', STATUS_STYLE[row.status] || 'bg-slate-100 text-slate-500 border-slate-200'].join(' ')}><span className={['w-1.5 h-1.5 rounded-full', row.status === 'Investigating' ? 'bg-red-500' : row.status === 'AI Analysis' ? 'bg-violet-500' : row.status === 'Monitoring' ? 'bg-blue-500' : row.status === 'Resolved' ? 'bg-emerald-500' : 'bg-slate-400'].join(' ')} />{row.status}</span>{row.status === 'Investigating' && row.sla_breach && <span className="ml-1.5 rounded border border-amber-300 bg-amber-50 px-1.5 py-0.5 text-[9px] font-bold uppercase text-amber-700">SLA Breached</span>}</td><td className="px-4 py-3.5 whitespace-nowrap"><span className={['inline-block px-2 py-0.5 rounded-md border text-[10px] font-bold', PRIORITY_STYLE[row.priority] || 'bg-slate-100 text-slate-500 border-slate-200'].join(' ')}>{row.priority}</span></td><td className="px-4 py-3.5 whitespace-nowrap"><span className="font-mono text-[10px] text-slate-500">{row.createdAt}</span></td><td className="px-4 py-3.5 whitespace-nowrap"><span className="font-mono text-[10px] text-slate-500">{row.updatedAt}</span></td></tr>)}</tbody></table></div>
+  )
 
   return (
     <div className="min-h-full shrink-0 flex flex-col gap-5 p-5 md:p-6 bg-[#f7f9fc]">
@@ -270,168 +301,19 @@ function IncidentsPage({ config, onOpenJob, approvedJobNames }) {
         </div>
       </section>
 
-      {/* Table */}
-      <section className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm">
-
-        {/* Table toolbar */}
-        <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 border-b border-slate-200">
-          <div className="flex items-center gap-2 text-sm font-semibold text-slate-800">
-            <AlertTriangle size={16} className="text-blue-600" />
-            All Incidents
-            <span className="text-[11px] font-semibold bg-slate-100 text-slate-500 px-2 py-0.5 rounded-md ml-1">{rows.length}</span>
-          </div>
-
-          <div className="flex flex-wrap items-center gap-2">
-            {/* Search */}
-            <div className="relative">
-              <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
-              <input
-                value={query}
-                onChange={e => setQuery(e.target.value)}
-                placeholder="Search incidents…"
-                className="h-8 w-52 pl-8 pr-3 text-xs border border-slate-200 rounded-lg bg-slate-50 outline-none focus:border-blue-400 transition-colors"
-              />
-            </div>
-            {/* Status filter */}
-            <select
-              value={statusFilter}
-              onChange={e => setStatusFilter(e.target.value)}
-              className="h-8 rounded-lg border border-slate-200 bg-white px-2.5 text-xs font-medium text-slate-600 outline-none focus:border-blue-400"
-            >
-              {statuses.map(s => <option key={s}>{s}</option>)}
-            </select>
-            {/* Priority filter */}
-            <select
-              value={priorityFilter}
-              onChange={e => setPriorityFilter(e.target.value)}
-              className="h-8 rounded-lg border border-blue-200 bg-blue-50 px-2.5 text-xs font-semibold text-blue-700 outline-none focus:border-blue-400"
-            >
-              {priorities.map(p => <option key={p}>{p}</option>)}
-            </select>
-          </div>
-        </div>
-
-        {/* Table itself */}
-        <div className="overflow-x-auto">
-          <table className="w-full border-collapse text-xs min-w-[1100px]">
-            <thead>
-              <tr className="bg-slate-50 border-b border-slate-200">
-                {[
-                  'Incident ID', 'Workflow Name', 'Failed Job', 'Assignee',
-                  'Team', 'Manager / Reporting', 'Status', 'Priority',
-                  'Created', 'Last Updated',
-                ].map(h => (
-                  <th key={h} className="px-4 py-3 text-left text-[10px] font-bold uppercase tracking-wide text-slate-500 whitespace-nowrap">
-                    {h}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {rows.length === 0 ? (
-                <tr><td colSpan={10} className="py-12 text-center text-xs text-slate-400">No incidents match the selected filters.</td></tr>
-              ) : rows.map(row => (
-                <tr
-                  key={row.id}
-                  className={`transition-colors hover:bg-slate-50/70 border-l-2 ${
-                    row.status === 'Investigating' ? 'border-l-red-400' :
-                    row.status === 'AI Analysis'  ? 'border-l-violet-400' :
-                    row.status === 'Monitoring'   ? 'border-l-blue-400' :
-                    'border-l-transparent'
-                  }`}
-                >
-                  {/* Incident ID — hyperlink */}
-                  <td className="px-4 py-3.5 whitespace-nowrap">
-                    <a
-                      href={row.url}
-                      onClick={e => { e.preventDefault(); onOpenJob?.(row.jobName) }}
-                      className="font-mono font-semibold text-blue-600 hover:text-blue-800 hover:underline underline-offset-2 transition-colors"
-                    >
-                      {row.id}
-                    </a>
-                  </td>
-
-                  {/* Workflow name */}
-                  <td className="px-4 py-3.5">
-                    <div className="font-medium text-slate-700 truncate max-w-[180px]" title={row.workflow}>{row.workflow}</div>
-                  </td>
-
-                  {/* Failed job name */}
-                  <td className="px-4 py-3.5">
-                    <div className="font-mono text-slate-600 text-[11px] truncate max-w-[160px]" title={row.jobName}>{row.jobName}</div>
-                    <div className="text-[10px] text-slate-400 mt-0.5 truncate max-w-[160px]">{row.detail}</div>
-                  </td>
-
-                  {/* Assignee */}
-                  <td className="px-4 py-3.5 whitespace-nowrap">
-                    <div className="flex items-center gap-2">
-                      <span className={`w-6 h-6 rounded-full grid place-items-center text-[9px] font-bold shrink-0 ${
-                        row.tone === 'red'   ? 'bg-red-100 text-red-700' :
-                        row.tone === 'amber' ? 'bg-amber-100 text-amber-700' :
-                        row.tone === 'blue'  ? 'bg-blue-100 text-blue-700' :
-                        'bg-emerald-100 text-emerald-700'
-                      }`}>{row.assigneeInitials}</span>
-                      <span className="text-slate-700 font-medium">{row.assignee}</span>
-                    </div>
-                  </td>
-
-                  {/* Team */}
-                  <td className="px-4 py-3.5 whitespace-nowrap">
-                    <span className="text-slate-600">{row.team}</span>
-                  </td>
-
-                  {/* Manager */}
-                  <td className="px-4 py-3.5 whitespace-nowrap">
-                    <span className="text-slate-600">{row.manager}</span>
-                  </td>
-
-                  {/* Status */}
-                  <td className="px-4 py-3.5 whitespace-nowrap">
-                    <span className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-md border text-[10px] font-semibold ${STATUS_STYLE[row.status] || 'bg-slate-100 text-slate-500 border-slate-200'}`}>
-                      <span className={`w-1.5 h-1.5 rounded-full ${
-                        row.status === 'Investigating' ? 'bg-red-500' :
-                        row.status === 'AI Analysis'   ? 'bg-violet-500' :
-                        row.status === 'Monitoring'    ? 'bg-blue-500' :
-                        row.status === 'Resolved'      ? 'bg-emerald-500' :
-                        'bg-slate-400'
-                      }`} />
-                      {row.status}
-                    </span>
-                  </td>
-
-                  {/* Priority */}
-                  <td className="px-4 py-3.5 whitespace-nowrap">
-                    <span className={`inline-block px-2 py-0.5 rounded-md border text-[10px] font-bold ${PRIORITY_STYLE[row.priority] || 'bg-slate-100 text-slate-500 border-slate-200'}`}>
-                      {row.priority}
-                    </span>
-                  </td>
-
-                  {/* Created date */}
-                  <td className="px-4 py-3.5 whitespace-nowrap">
-                    <span className="font-mono text-[10px] text-slate-500">{row.createdAt}</span>
-                  </td>
-
-                  {/* Updated date */}
-                  <td className="px-4 py-3.5 whitespace-nowrap">
-                    <span className="font-mono text-[10px] text-slate-500">{row.updatedAt}</span>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-
-        {/* Table footer */}
-        <div className="flex items-center justify-between px-4 py-3 border-t border-slate-100 bg-slate-50/50">
-          <span className="text-[11px] text-slate-400">Showing {rows.length} of {incidentRows.length} incidents</span>
-          <div className="flex items-center gap-1">
-            <button className="h-7 px-2.5 rounded border border-slate-200 text-[11px] text-slate-500 bg-white hover:border-slate-300 disabled:opacity-40" disabled>← Prev</button>
-            <span className="h-7 px-2.5 rounded border border-blue-200 bg-blue-50 text-[11px] font-semibold text-blue-700 grid place-items-center">1</span>
-            <button className="h-7 px-2.5 rounded border border-slate-200 text-[11px] text-slate-500 bg-white hover:border-slate-300 disabled:opacity-40" disabled>Next →</button>
-          </div>
-        </div>
-
-      </section>
+      <section className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm"><div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3"><div className="flex items-center gap-2 text-sm font-semibold text-slate-800"><AlertTriangle size={16} className="text-blue-600" />Incident filters<span className="text-[11px] font-semibold bg-slate-100 text-slate-500 px-2 py-0.5 rounded-md ml-1">{rows.length}</span></div><div className="flex flex-wrap items-center gap-2"><div className="relative"><Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" /><input value={query} onChange={e => setQuery(e.target.value)} placeholder="Search incidents…" className="h-8 w-52 pl-8 pr-3 text-xs border border-slate-200 rounded-lg bg-slate-50 outline-none focus:border-blue-400 transition-colors" /></div><select value={statusFilter} onChange={e => setStatusFilter(e.target.value)} className="h-8 rounded-lg border border-slate-200 bg-white px-2.5 text-xs font-medium text-slate-600 outline-none focus:border-blue-400">{statuses.map(s => <option key={s}>{s}</option>)}</select><select value={priorityFilter} onChange={e => setPriorityFilter(e.target.value)} className="h-8 rounded-lg border border-blue-200 bg-blue-50 px-2.5 text-xs font-semibold text-blue-700 outline-none focus:border-blue-400">{priorities.map(p => <option key={p}>{p}</option>)}</select></div></div></section>
+      <section><h3 className="mb-2 flex items-center gap-2 text-sm font-bold text-slate-800">Failed <span className="rounded-md bg-red-50 px-2 py-0.5 text-xs font-semibold text-red-600">{failedIncidents.length}</span></h3>{renderIncidentTable(failedIncidents, row => onOpenJob?.(row.jobName))}</section>
+      <section className="mt-6"><h3 className="mb-2 flex items-center gap-2 text-sm font-bold text-slate-800">SLA Breach <span className="rounded-md bg-amber-50 px-2 py-0.5 text-xs font-semibold text-amber-600">{slaBreachIncidents.length}</span></h3>{renderIncidentTable(slaBreachIncidents, row => setSlaDetailRow(row))}</section>
+      {slaDetailRow && (
+        <SlaBreachDetail
+          jobName={slaDetailRow.jobName}
+          workflow={slaDetailRow.workflow}
+          slaTargetMins={slaDetailRow.sla_target_mins}
+          runtime={slaDetailRow.runtime}
+          overdueMins={slaDetailRow.sla_overdue_mins}
+          onClose={() => setSlaDetailRow(null)}
+        />
+      )}
     </div>
   )
 }
