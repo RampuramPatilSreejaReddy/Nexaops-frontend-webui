@@ -423,7 +423,20 @@ function IntegrationsModule({ config }) {
         </section>
       </div>
       {connectOpen && <ConnectIntegrationModal onClose={() => setConnectOpen(false)} onSave={item => { setItems(values => [{ id: String(values.length + 1).padStart(2, '0'), tag: 'Healthy', state: 'Ready to sync', age: 'Synced now', source: 'Custom connection', ...item }, ...values]); setConnectOpen(false) }}/>}
-      {selected && <IntegrationDetail item={selected} onClose={() => setSelected(null)} onRemove={() => { setItems(values => values.filter(value => value.id !== selected.id)); setSelected(null) }}/>}
+      {selected && (
+        <IntegrationDetail
+          item={selected}
+          onClose={() => setSelected(null)}
+          onRemove={() => {
+            setItems(values => values.filter(value => value.id !== selected.id))
+            setSelected(null)
+          }}
+          onEdit={updated => {
+            setItems(values => values.map(val => val.id === selected.id ? { ...val, ...updated, detail: updated.detail || val.detail, state: updated.connection || val.state } : val))
+            setSelected(prev => ({ ...prev, ...updated, detail: updated.detail || prev.detail, connection: updated.connection || prev.connection }))
+          }}
+        />
+      )}
     </div>
   )
 }
@@ -613,8 +626,249 @@ function Panel({ title, icon: Icon, children }) {
     </section>
   )
 }
+function IntegrationDetail({ item, onClose, onRemove, onEdit }) {
+  const [paused, setPaused] = useState(false)
+  const [activeAction, setActiveAction] = useState(null)
+  const [actionNotice, setActionNotice] = useState(null)
+  const [copiedConn, setCopiedConn] = useState(false)
+  const [editModalOpen, setEditModalOpen] = useState(false)
+  const [syncTime, setSyncTime] = useState(item.age || 'Synced now')
 
-function IntegrationDetail({ item, onClose, onRemove }) { const [paused, setPaused] = useState(false), [message, setMessage] = useState(''); const action = text => setMessage(text); return <div className="fixed inset-0 z-50 overflow-auto bg-[#f7f9fc] p-5 md:p-6"><div className="mx-auto max-w-[1200px]"><div className="mb-5 flex items-start justify-between"><div><h2 className="text-xl font-semibold text-slate-900">{item.name}</h2><p className="mt-1 text-xs text-slate-500">{item.detail}</p></div><button onClick={onClose} className="text-xs font-semibold text-slate-500 hover:text-slate-800">Close</button></div>{message && <div className="mb-4 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-700">{message}</div>}<div className="grid gap-4 lg:grid-cols-[1.3fr_.7fr]"><div className="space-y-4"><Panel title="Connection information" icon={PlugZap}><div className="grid grid-cols-2 gap-4 text-xs"><Info icon={Database} title="Connection" value={item.connection || item.source} text="Configured endpoint"/><Info icon={ShieldCheck} title="Authentication" value={item.auth || 'Managed'} text="Credential status active"/></div></Panel><Panel title="Sync history & health" icon={Activity}><div className="text-xs text-slate-600">Last sync: {item.age} · Success rate: 99.8% · Latency: 240ms</div><div className="mt-4 rounded-lg bg-slate-50 p-3 text-xs text-slate-500">Recent events: configuration validated, workflow mappings refreshed, telemetry received.</div></Panel><Panel title="Recent logs & workflow mappings" icon={FileText}><div className="space-y-2 text-xs text-slate-600"><p>✓ Connection authenticated successfully</p><p>✓ Synced workflow events and health signals</p><p>Mapped workflows: payments-etl-daily, customer-sync-api</p></div></Panel></div><aside className="space-y-4"><Panel title="Actions" icon={Zap}><div className="flex flex-col gap-2"><button onClick={() => action('Connection test passed.')} className="rounded-lg border border-blue-300 px-3 py-2 text-xs font-semibold text-blue-600">Test Connection</button><button onClick={() => action('Sync started.')} className="rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-600">Sync Now</button><button onClick={() => action('Configuration editor opened.')} className="rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-600">Edit Configuration</button><button onClick={() => { setPaused(value => !value); action(paused ? 'Sync resumed.' : 'Sync paused.') }} className="rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-600">{paused ? 'Resume Sync' : 'Pause Sync'}</button><button onClick={() => action('Reconnect attempt started.')} className="rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-600">Reconnect</button><button onClick={onRemove} className="rounded-lg border border-red-200 px-3 py-2 text-xs font-semibold text-red-600">Remove Integration</button></div></Panel></aside></div></div></div> }
+  const connectionString = item.connection || item.source || 'https://github.com/RampuramPatilSreejaReddy/nexaops-test-repo'
+  const authToken = item.auth || 'github_pat_11A_nexaops_test_repo_token'
+
+  const handleTestConnection = () => {
+    setActiveAction('testing')
+    setActionNotice(null)
+    setTimeout(() => {
+      setActiveAction(null)
+      setActionNotice({ type: 'success', text: `✓ Connection test passed (28ms latency · TLS v1.3 handshake verified for ${item.name})` })
+    }, 1000)
+  }
+
+  const handleSyncNow = () => {
+    setActiveAction('syncing')
+    setActionNotice(null)
+    setTimeout(() => {
+      setActiveAction(null)
+      setSyncTime('Just now')
+      setActionNotice({ type: 'success', text: `✓ Manual telemetry and workflow event sync completed successfully.` })
+    }, 1100)
+  }
+
+  const handleReconnect = () => {
+    setActiveAction('reconnecting')
+    setActionNotice(null)
+    setTimeout(() => {
+      setActiveAction(null)
+      setActionNotice({ type: 'success', text: `✓ Successfully re-authenticated credentials & renewed active session token.` })
+    }, 1200)
+  }
+
+  const handleTogglePause = () => {
+    const nextState = !paused
+    setPaused(nextState)
+    setActionNotice({
+      type: nextState ? 'amber' : 'success',
+      text: nextState ? '⏸ Integration sync paused by workspace admin.' : '▶ Integration sync resumed successfully.'
+    })
+  }
+
+  const copyConnection = async () => {
+    try {
+      await navigator.clipboard.writeText(connectionString)
+      setCopiedConn(true)
+      setTimeout(() => setCopiedConn(false), 2000)
+    } catch {
+      setCopiedConn(false)
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 overflow-auto bg-slate-950/60 p-4 md:p-6 backdrop-blur-sm" onClick={event => event.target === event.currentTarget && onClose()}>
+      <div className="mx-auto max-w-[1100px] overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl">
+        <header className="flex items-center justify-between border-b border-slate-200 bg-slate-50/80 px-6 py-4">
+          <div className="flex items-center gap-3">
+            <span className="grid h-10 w-10 place-items-center rounded-xl bg-blue-100 text-blue-600 font-bold">
+              <PlugZap size={20}/>
+            </span>
+            <div>
+              <div className="flex items-center gap-2">
+                <h2 className="text-lg font-bold text-slate-900">{item.name}</h2>
+                <span className={`rounded-md border px-2.5 py-0.5 text-[11px] font-bold ${paused ? 'border-amber-200 bg-amber-50 text-amber-700' : (item.tag === 'Healthy' ? 'border-emerald-200 bg-emerald-50 text-emerald-700' : 'border-amber-200 bg-amber-50 text-amber-700')}`}>
+                  {paused ? 'Paused' : item.tag || 'Healthy'}
+                </span>
+              </div>
+              <p className="mt-0.5 text-xs text-slate-500">{item.detail}</p>
+            </div>
+          </div>
+          <button onClick={onClose} className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-50 transition cursor-pointer">
+            Close
+          </button>
+        </header>
+
+        {actionNotice && (
+          <div className={`mx-6 mt-4 flex items-center justify-between rounded-xl border px-4 py-3 text-xs font-semibold ${actionNotice.type === 'amber' ? 'border-amber-200 bg-amber-50 text-amber-800' : 'border-emerald-200 bg-emerald-50 text-emerald-800'}`}>
+            <span>{actionNotice.text}</span>
+            <button onClick={() => setActionNotice(null)} className="text-slate-400 hover:text-slate-700">✕</button>
+          </div>
+        )}
+
+        <div className="grid gap-6 p-6 lg:grid-cols-[1.4fr_.6fr]">
+          <div className="space-y-5">
+            <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+              <header className="flex items-center justify-between border-b border-slate-200 bg-slate-50 px-4 py-3 text-xs font-bold text-slate-700">
+                <span className="flex items-center gap-2"><PlugZap size={15} className="text-blue-600"/> Connection Information</span>
+                <span className="text-[10px] font-semibold text-slate-400">ID: {item.id || '01'}</span>
+              </header>
+              <div className="space-y-3 p-4">
+                <div>
+                  <div className="flex items-center justify-between text-[11px] font-semibold text-slate-500 mb-1">
+                    <span>Configured Endpoint / Repository URL</span>
+                    {connectionString.startsWith('http') && (
+                      <a href={connectionString} target="_blank" rel="noreferrer" className="text-blue-600 hover:underline inline-flex items-center gap-1 text-[10px]">
+                        Open ↗
+                      </a>
+                    )}
+                  </div>
+                  <div className="flex items-center justify-between gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
+                    <code className="break-all font-mono text-xs font-semibold text-slate-800 select-all">{connectionString}</code>
+                    <button onClick={copyConnection} className="shrink-0 rounded bg-white px-2.5 py-1 text-[10px] font-semibold text-blue-600 border border-slate-200 hover:bg-blue-50 transition cursor-pointer">
+                      {copiedConn ? 'Copied!' : 'Copy'}
+                    </button>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3 pt-1">
+                  <div>
+                    <span className="text-[11px] font-semibold text-slate-500 block mb-1">Authentication Credentials</span>
+                    <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 font-mono text-xs font-medium text-slate-700 truncate">
+                      {authToken}
+                    </div>
+                  </div>
+                  <div>
+                    <span className="text-[11px] font-semibold text-slate-500 block mb-1">Security & Encryption</span>
+                    <div className="rounded-lg border border-emerald-200 bg-emerald-50/60 px-3 py-2 text-xs font-semibold text-emerald-800 flex items-center gap-1.5">
+                      <ShieldCheck size={14} className="text-emerald-600"/> TLS v1.3 Verified
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+              <header className="flex items-center justify-between border-b border-slate-200 bg-slate-50 px-4 py-3 text-xs font-bold text-slate-700">
+                <span className="flex items-center gap-2"><Activity size={15} className="text-blue-600"/> Sync History & Telemetry</span>
+                <span className="text-[11px] font-semibold text-emerald-600">99.8% Success Rate</span>
+              </header>
+              <div className="p-4">
+                <div className="grid grid-cols-3 gap-3 text-center">
+                  <div className="rounded-lg border border-slate-100 bg-slate-50 p-2.5">
+                    <span className="text-[10px] font-semibold uppercase text-slate-400 block">Last Sync</span>
+                    <span className="text-xs font-bold font-mono text-slate-800 mt-0.5 block">{syncTime}</span>
+                  </div>
+                  <div className="rounded-lg border border-slate-100 bg-slate-50 p-2.5">
+                    <span className="text-[10px] font-semibold uppercase text-slate-400 block">Latency</span>
+                    <span className="text-xs font-bold font-mono text-slate-800 mt-0.5 block">24ms</span>
+                  </div>
+                  <div className="rounded-lg border border-slate-100 bg-slate-50 p-2.5">
+                    <span className="text-[10px] font-semibold uppercase text-slate-400 block">Events / 24h</span>
+                    <span className="text-xs font-bold font-mono text-slate-800 mt-0.5 block">12.8k</span>
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+              <header className="border-b border-slate-200 bg-slate-50 px-4 py-3 text-xs font-bold text-slate-700 flex items-center gap-2">
+                <FileText size={15} className="text-blue-600"/> Recent Health & Event Stream
+              </header>
+              <div className="p-4 space-y-2 font-mono text-xs">
+                <div className="flex items-center gap-2 text-slate-600"><span className="text-emerald-600 font-bold">✓</span> [01:58:12] Webhook listener active for branch main</div>
+                <div className="flex items-center gap-2 text-slate-600"><span className="text-emerald-600 font-bold">✓</span> [01:55:00] Telemetry handshake verified (0 failures)</div>
+                <div className="flex items-center gap-2 text-slate-600"><span className="text-emerald-600 font-bold">✓</span> [01:45:20] Workflow events synced for customer-sync-api</div>
+              </div>
+            </section>
+          </div>
+
+          <aside className="space-y-4">
+            <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+              <header className="border-b border-slate-200 bg-slate-50 px-4 py-3 text-xs font-bold text-slate-700 flex items-center gap-2">
+                <Zap size={15} className="text-amber-500"/> Integration Actions
+              </header>
+              <div className="p-4 space-y-2.5">
+                <button
+                  onClick={handleTestConnection}
+                  disabled={activeAction === 'testing'}
+                  className="w-full inline-flex items-center justify-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2.5 text-xs font-bold text-blue-700 hover:bg-blue-100 transition cursor-pointer disabled:opacity-50"
+                >
+                  <RefreshCw size={14} className={activeAction === 'testing' ? 'animate-spin' : ''}/>
+                  {activeAction === 'testing' ? 'Testing Connection...' : 'Test Connection'}
+                </button>
+
+                <button
+                  onClick={handleSyncNow}
+                  disabled={activeAction === 'syncing'}
+                  className="w-full inline-flex items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition cursor-pointer disabled:opacity-50"
+                >
+                  <Activity size={14} className={activeAction === 'syncing' ? 'animate-spin' : ''}/>
+                  {activeAction === 'syncing' ? 'Syncing...' : 'Sync Now'}
+                </button>
+
+                <button
+                  onClick={() => setEditModalOpen(true)}
+                  className="w-full inline-flex items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition cursor-pointer"
+                >
+                  <SlidersHorizontal size={14}/> Edit Configuration
+                </button>
+
+                <button
+                  onClick={handleTogglePause}
+                  className="w-full inline-flex items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition cursor-pointer"
+                >
+                  {paused ? '▶ Resume Sync' : '⏸ Pause Sync'}
+                </button>
+
+                <button
+                  onClick={handleReconnect}
+                  disabled={activeAction === 'reconnecting'}
+                  className="w-full inline-flex items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition cursor-pointer disabled:opacity-50"
+                >
+                  <Network size={14} className={activeAction === 'reconnecting' ? 'animate-spin' : ''}/>
+                  {activeAction === 'reconnecting' ? 'Reconnecting...' : 'Reconnect'}
+                </button>
+
+                <div className="pt-2 border-t border-slate-100">
+                  <button
+                    onClick={() => {
+                      if (window.confirm(`Are you sure you want to remove ${item.name} integration?`)) {
+                        onRemove?.()
+                      }
+                    }}
+                    className="w-full inline-flex items-center justify-center gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2.5 text-xs font-bold text-red-600 hover:bg-red-100 transition cursor-pointer"
+                  >
+                    ✕ Remove Integration
+                  </button>
+                </div>
+              </div>
+            </section>
+          </aside>
+        </div>
+      </div>
+
+      {editModalOpen && (
+        <ConnectIntegrationModal
+          onClose={() => setEditModalOpen(false)}
+          onSave={updated => {
+            onEdit?.(updated)
+            setEditModalOpen(false)
+            setActionNotice({ type: 'success', text: `✓ Configuration for ${updated.name} updated successfully.` })
+          }}
+        />
+      )}
+    </div>
+  )
+}
 function IntegrationHealth() { return <section className="grid grid-cols-1 md:grid-cols-3 gap-4"><Info icon={Network} title="Event throughput" value="12.8k" text="events received today"/><Info icon={CheckCircle2} title="Sync success" value="99.8%" text="over the last 24 hours"/><Info icon={Clock3} title="Last full sync" value="2m" text="across all services"/></section> }
 function RunbookCoverage() { return <section className="grid grid-cols-1 lg:grid-cols-2 gap-4"><div className="bg-white border border-slate-200 rounded-xl p-4"><div className="flex items-center justify-between"><span className="text-sm font-semibold text-slate-800">Automation coverage</span><span className="text-xs font-mono text-blue-600">72%</span></div><div className="h-2 rounded-full bg-slate-100 overflow-hidden mt-4"><div className="h-full w-[72%] bg-blue-500 rounded-full"/></div><p className="text-xs text-slate-500 mt-3">18 of 25 common incident patterns have a linked runbook.</p></div><div className="bg-white border border-slate-200 rounded-xl p-4"><div className="flex items-center gap-2 text-sm font-semibold text-slate-800"><Zap size={16} className="text-amber-500"/> Suggested next runbook</div><p className="text-xs text-slate-500 mt-2">Document the customer-sync API recovery path based on 3 related incidents.</p><button className="mt-3 text-xs font-semibold text-blue-600">Draft from incidents <ChevronRight size={13} className="inline"/></button></div></section> }
 function Info({ icon: Icon, title, value, text }) { return <div className="bg-white border border-slate-200 rounded-xl p-4"><Icon size={16} className="text-blue-600"/><div className="text-xl font-mono font-semibold text-slate-800 mt-3">{value}</div><div className="text-xs font-medium text-slate-700 mt-1">{title}</div><div className="text-xs text-slate-400 mt-1">{text}</div></div> }
