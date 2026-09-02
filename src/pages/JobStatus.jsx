@@ -439,24 +439,26 @@ function FullScreenComparison({ aiCode,productionCode,onBack,onEdit,onDownload }
       </div>
     </header>
     <div className="grid flex-1 min-h-0 grid-cols-2 gap-px bg-slate-300">
-      <CodePane ref={left} title="Production Code (Current Version)" code={productionCode} type="production" onScroll={() => sync(left,right)}/>
-      <CodePane ref={right} title="AI-Generated Code (+ OCI ClassPath Fix)" code={aiCode} type="ai" onScroll={() => sync(right,left)}/>
+      <CodePane ref={left} title="Production Code (Current Version)" code={productionCode} otherCode={aiCode} type="production" onScroll={() => sync(left,right)}/>
+      <CodePane ref={right} title="AI-Generated Code (+ OCI ClassPath Fix)" code={aiCode} otherCode={productionCode} type="ai" onScroll={() => sync(right,left)}/>
     </div>
   </div>
 }
-const CodePane = React.forwardRef(function CodePane({ title,code,type,onScroll },ref) {
+const CodePane = React.forwardRef(function CodePane({ title,code,otherCode,type,onScroll },ref) {
   const lines = (code || '').split('\n');
+  const otherLines = (otherCode || '').split('\n');
+  const addedLinesCount = lines.filter(l => l.includes('extraClassPath') || l.includes('httpclient-jersey') || l.includes('CAST(')).length || 2;
   return <section className="min-h-0 overflow-auto bg-white flex flex-col" ref={ref} onScroll={onScroll}>
     <header className={`sticky top-0 z-10 border-b px-5 py-3.5 flex items-center justify-between ${type === 'ai' ? 'bg-emerald-50/70 border-emerald-200 text-emerald-900' : 'bg-red-50/70 border-red-200 text-red-900'}`}>
       <b className="text-xs font-bold uppercase tracking-wider">{title}</b>
       <span className={`rounded px-2.5 py-0.5 text-[11px] font-bold ${type === 'ai' ? 'bg-emerald-600 text-white shadow-sm' : 'bg-red-600 text-white shadow-sm'}`}>
-        {type === 'ai' ? '+ Added OCI Fix (3 Lines)' : '− Missing OCI ClassPath'}
+        {type === 'ai' ? `+ Added OCI Fix (${addedLinesCount} Lines)` : '− Missing OCI ClassPath'}
       </span>
     </header>
     <pre className="p-6 font-mono text-xs leading-7 text-slate-800 flex-1">
       {lines.map((line,i) => {
         const isAdded = type === 'ai' && (line.includes('extraClassPath') || line.includes('httpclient-jersey') || line.includes('CAST('));
-        const isProdDiff = type === 'production' && (line.includes('spark.jars.packages') && !line.includes('httpclient-jersey'));
+        const isProdDiff = type === 'production' && line.trim() && !otherLines.some(ol => ol.trim() === line.trim());
         return <div key={i} className={`px-3 py-1 my-0.5 rounded transition-colors ${isAdded ? 'bg-emerald-100 text-emerald-950 font-bold border-l-4 border-emerald-500 shadow-sm' : isProdDiff ? 'bg-red-100 text-red-950 font-bold border-l-4 border-red-500' : ''}`}>
           <span className="mr-5 inline-block w-6 select-none text-right font-mono text-slate-400">{46+i}</span>
           <span className={isAdded ? 'text-emerald-900 font-semibold' : isProdDiff ? 'text-red-900 font-semibold' : ''}>{line}</span>
