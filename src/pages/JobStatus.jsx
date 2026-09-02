@@ -68,6 +68,15 @@ df.show(5)
     return () => { root.unmount(); mount.remove() }
   }, [githubModal,job])
 
+  useEffect(() => {
+    if (!fullLogsModal) return undefined
+    const mount = document.createElement('div')
+    document.body.appendChild(mount)
+    const root = createRoot(mount)
+    root.render(<FullLogsModal job={job} logs={resolution?.log} onClose={() => setFullLogsModal(false)}/>)
+    return () => { root.unmount(); mount.remove() }
+  }, [fullLogsModal, job, resolution])
+
   const fetchResolution = async (force = false) => {
     if (!job?.id) return
     setResolutionLoading(true)
@@ -120,7 +129,8 @@ df.show(5)
   ["Model", resolution?.model || 'openrouter/minimax-m2.7'],
   ["Tokens (in / out)", resolution?.tokens_used ? (typeof resolution.tokens_used === 'object' ? `${resolution.tokens_used.input_tokens || 0} / ${resolution.tokens_used.output_tokens || 0}` : resolution.tokens_used) : '540 / 185'],
   ["Est. cost", resolution?.estimated_cost_usd != null ? `$${Number(resolution.estimated_cost_usd).toFixed(6)}` : '$0.000165'],
-]}/><section className="border-b border-slate-100 py-4"><b className="text-[10px] uppercase text-slate-600">Next Steps (After Approval)</b><ul className="mt-3 space-y-2 text-slate-500"><li>Change Request (CR) will be created</li><li>Code will be committed / merged</li><li>Pipeline will be deployed</li><li>Monitoring will resume</li></ul></section><section className="pt-4"><b className="text-[10px] uppercase text-slate-600">Access Control</b><div className="mt-3 space-y-2 text-slate-500"><div className="flex justify-between"><span>Owner</span><b className="text-slate-700">data-eng-team</b></div><div className="flex justify-between"><span>You</span><b className="text-blue-600">View Only</b></div><p className="pt-2 text-[10px] leading-4">Only the owner and authorized members can edit code and raise CR.</p></div></section></div></aside></div></div></aside>{view === 'compare' && <FullScreenComparison aiCode={aiCode} productionCode={effectiveProdCode} onBack={() => setView(null)} onEdit={() => setView('edit')} onDownload={download}/>} {view === 'edit' && <FullScreenEditor aiCode={aiCode} onChange={setAiCode} onBack={() => setView('compare')} onClose={() => setView(null)} onDownload={download}/>}{fullLogsModal && <FullLogsModal job={job} logs={resolution?.log} onClose={() => setFullLogsModal(false)}/>}</>
+]}/><section className="border-b border-slate-100 py-4"><b className="text-[10px] uppercase text-slate-600">Next Steps (After Approval)</b><ul className="mt-3 space-y-2 text-slate-500"><li>Change Request (CR) will be created</li><li>Code will be committed / merged</li><li>Pipeline will be deployed</li><li>Monitoring will resume</li></ul></section><section className="pt-4"><b className="text-[10px] uppercase text-slate-600">Access Control</b><div className="mt-3 space-y-2 text-slate-500"><div className="flex justify-between"><span>Owner</span><b className="text-slate-700">data-eng-team</b></div><div className="flex justify-between"><span>You</span><b className="text-blue-600">View Only</b></div><p className="pt-2 text-[10px] leading-4">Only the owner and authorized members can edit code and raise CR.</p></div></section></div></aside></div></div></aside>{view === 'compare' && <FullScreenComparison aiCode={aiCode} productionCode={effectiveProdCode} onBack={() => setView(null)} onEdit={() => setView('edit')} onDownload={download}/>} {view === 'edit' && <FullScreenEditor aiCode={aiCode} onChange={setAiCode} onBack={() => setView('compare')} onClose={() => setView(null)} onDownload={download}/>}</>
+
 }
 
 function FullLogsModal({ job, logs, onClose }) {
