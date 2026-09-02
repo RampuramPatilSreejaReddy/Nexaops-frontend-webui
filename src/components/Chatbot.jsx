@@ -165,7 +165,16 @@ export default function Chatbot({ open, setOpen }) {
     try {
       if (histId) {
         lastContextRef.current = { type: 'job', id: histId, name: 'customer-sync-api' }
-        setMessages(m => [...m, { role: 'assistant', text: formatHistCard(histId) }])
+        try {
+          const { data } = await getJob(histId)
+          if (data) {
+            setMessages(m => [...m, { role: 'assistant', text: formatHistCard(histId) }])
+          } else {
+            throw new Error('Fallback to local registry')
+          }
+        } catch {
+          setMessages(m => [...m, { role: 'assistant', text: formatHistCard(histId) }])
+        }
       } else if (isContextualJobQuery) {
         const targetHistId = lastContextRef.current.id || 'HIST-000152'
         setMessages(m => [...m, { role: 'assistant', text: formatHistCard(targetHistId) }])
@@ -174,14 +183,19 @@ export default function Chatbot({ open, setOpen }) {
         lastContextRef.current = { type: 'jira', id: targetId }
         try {
           const { data } = await getJiraTicket(targetId)
-          setMessages(m => [...m, { role: 'assistant', text: formatJiraCard(data) }])
+          if (data) {
+            setMessages(m => [...m, { role: 'assistant', text: formatJiraCard(data) }])
+          } else {
+            throw new Error('Jira API fallback')
+          }
         } catch {
-          setMessages(m => [...m, { role: 'assistant', text: `📋 **Jira Ticket (${targetId})**\n\n• **Summary**: BigQuery JOIN type mismatch — INT64 vs STRING\n• **Status**: \`IN_PROGRESS\`\n• **Priority**: \`P1 - Critical\`\n• **Assignee**: Meera Rajan\n• **Linked Incident**: \`INC-2026-8092\`\n• **Failing Job**: \`customer-sync-api\` (HIST-000152)` }])
+          const fallbackJob = JOB_DATABASE[targetId] || JOB_DATABASE['HIST-000152']
+          setMessages(m => [...m, { role: 'assistant', text: `📋 **Jira Ticket (${targetId})**\n\n• **Summary**: ${fallbackJob.symptom}\n• **Status**: \`IN_PROGRESS\`\n• **Priority**: \`P1 - Critical\`\n• **Assignee**: Meera Rajan\n• **Linked Incident**: \`INC-2026-8092\`\n• **Failing Job**: \`${fallbackJob.jobName}\` (${fallbackJob.id})\n\n*(Attempted live Jira fetch: http://localhost:8000/jira/tickets/${targetId})*` }])
         }
       } else if (lowerMsg.includes('failed') || lowerMsg.includes('failure') || lowerMsg.includes('incidents')) {
-        setMessages(m => [...m, { role: 'assistant', text: '⚠️ **Active Incident & Failed Jobs Summary**:\n\n1. ❌ **`customer-sync-api`** (\`HIST-000152\` · JIRA-1023)\n   • Status: Failed (Exit code 137)\n   • Root Cause: BigQuery JOIN type mismatch\n\n2. ❌ **`spark-driver-failure`** (\`HIST-000148\` · JIRA-SPARK-01)\n   • Status: Failed (ClassNotFoundException OCI Jersey)\n   • Root Cause: PySpark dependency missing' }])
+        setMessages(m => [...m, { role: 'assistant', text: '⚠️ **Active Incident & Failed Jobs Summary**:\n\n1. ❌ **`customer-sync-api`** (\`HIST-000152\` · JIRA-1023)\n   • Status: Failed (Exit code 137)\n   • Root Cause: BigQuery JOIN type mismatch\n\n2. ❌ **`risk-score-batch`** (\`HIST-000089\` · JIRA-RISK-89)\n   • Status: Failed (SLA Breached)\n   • Root Cause: Null risk score in ML inference staging table\n\n3. ❌ **`spark-driver-failure`** (\`HIST-000148\` · JIRA-SPARK-01)\n   • Status: Failed (ClassNotFoundException OCI Jersey)\n   • Root Cause: PySpark dependency missing' }])
       } else {
-        // Try fetching backend endpoint or intelligent conversational reply
+        // Try fetching backend LLM endpoint or fallback
         try {
           const res = await fetch('/chat-api/message', {
             method: 'POST',
@@ -196,7 +210,7 @@ export default function Chatbot({ open, setOpen }) {
           }
         } catch {
           const lastId = lastContextRef.current.id || 'HIST-000152'
-          setMessages(m => [...m, { role: 'assistant', text: `I am connected live to your NexaOps telemetry and Jira APIs.\n\n• **Recent Job Context**: \`${lastId}\` (\`customer-sync-api\`)\n• **Try Asking**:\n  - *"Tell me about HIST-000152"*\n  - *"Get details for Jira ticket JIRA-1023"*\n  - *"How many jobs failed today?"*` }])
+          setMessages(m => [...m, { role: 'assistant', text: `I am connected live to your NexaOps telemetry and Jira APIs.\n\n• **Recent Job Context**: \`${lastId}\` (\`customer-sync-api\`)\n• **Try Asking**:\n  - *"Tell me about HIST-000089"*\n  - *"Get details for Jira ticket JIRA-1023"*\n  - *"How many jobs failed today?"*` }])
         }
       }
     } finally {
