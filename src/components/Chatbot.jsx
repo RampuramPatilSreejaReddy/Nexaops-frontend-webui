@@ -38,25 +38,85 @@ function extractJiraId(text) {
   return null
 }
 
+const JOB_DATABASE = {
+  'HIST-000089': {
+    id: 'HIST-000089',
+    jobName: 'risk-score-batch',
+    aiStatus: 'AI Fix Ready',
+    startTime: '27-Aug-2026 02:00 am',
+    endTime: '27-Aug-2026 02:40 am',
+    status: 'Failed (SLA Breached)',
+    duration: '40 minutes',
+    cluster: 'prod-bigquery-ml-us-east2',
+    symptom: 'BigQuery ML prediction SLA breach & NaN gradient score',
+    rca: 'Inputs received unnormalized null risk scores from staging tables before ML inference.',
+    jira: 'JIRA-RISK-89'
+  },
+  'HIST-000152': {
+    id: 'HIST-000152',
+    jobName: 'customer-sync-api',
+    aiStatus: 'AI Fix Ready',
+    startTime: '02-Sep-2026 08:14 am',
+    endTime: '02-Sep-2026 08:17 am',
+    status: 'Failed (Exit code 137 / OOM)',
+    duration: '3m 42s',
+    cluster: 'prod-dataproc-us-east2 (PySpark v3.4.1)',
+    symptom: 'BigQuery JOIN type mismatch — INT64 vs STRING',
+    rca: 'Schema discrepancy in spark_driver_fix.py. Column customer_id cast as STRING in BigQuery but INT64 in Postgres pool.',
+    jira: 'JIRA-1023'
+  },
+  'HIST-000148': {
+    id: 'HIST-000148',
+    jobName: 'spark-driver-failure',
+    aiStatus: 'AI Fix Ready',
+    startTime: '02-Sep-2026 07:45 am',
+    endTime: '02-Sep-2026 07:46 am',
+    status: 'Failed (Classpath Error)',
+    duration: '1m 12s',
+    cluster: 'prod-spark-cluster-us-west',
+    symptom: 'ClassNotFoundException: org.glassfish.jersey.client.HttpUrlConnectorProvider',
+    rca: 'OCI Jersey client library dependency missing from PySpark classpath.',
+    jira: 'JIRA-SPARK-01'
+  }
+}
+
 function extractHistId(text) {
   const match = text.match(/\b(HIST-[A-Z0-9-]+|JOB-[A-Z0-9-]+)\b/i)
   if (match) return match[1].toUpperCase()
-  if (text.match(/\b(HIST|HISTORY|HIST000152|000152)\b/i)) return 'HIST-000152'
+  if (text.match(/\b(HIST0*89|000089|risk-score)\b/i)) return 'HIST-000089'
+  if (text.match(/\b(HIST0*152|000152|customer-sync)\b/i)) return 'HIST-000152'
+  if (text.match(/\b(HIST0*148|000148|spark-driver)\b/i)) return 'HIST-000148'
   return null
 }
 
 function formatHistCard(histId) {
   const repo = localStorage.getItem('nexaops_github_repo') || 'acies-sukhesh/nexaops-test-repo1'
+  const job = JOB_DATABASE[histId] || {
+    id: histId,
+    jobName: 'customer-sync-api',
+    aiStatus: 'AI Fix Ready',
+    startTime: '27-Aug-2026 02:00 am',
+    endTime: '27-Aug-2026 02:40 am',
+    status: 'Failed (SLA Breached)',
+    duration: '40 minutes',
+    cluster: 'prod-dataproc-us-east2',
+    symptom: 'Data pipeline execution error',
+    rca: 'Schema or dependency mismatch during workflow execution.',
+    jira: 'JIRA-1023'
+  }
+
   return (
-    `⚙️ **Job History Details (${histId})**\n\n` +
-    `• **Job Name**: \`customer-sync-api\` (Pipeline ID: \`pipe-sync-8092\`)\n` +
-    `• **Execution Status**: ❌ \`FAILED\` (Exit code: 137 / OOM Driver Error)\n` +
-    `• **Execution Time**: 2026-09-02 20:18:45 UTC (Duration: 3m 42s)\n` +
-    `• **Cluster / Environment**: \`prod-dataproc-us-east2\` (PySpark v3.4.1)\n` +
+    `⚙️ **Job History Details (${job.id})**\n\n` +
+    `• **Job Name**: \`${job.jobName}\`\n` +
+    `• **AI Status**: ⚡ \`${job.aiStatus}\`\n` +
+    `• **Execution Status**: ❌ \`${job.status}\`\n` +
+    `• **Start Time**: ${job.startTime}\n` +
+    `• **End Time**: ${job.endTime} (Duration: ${job.duration})\n` +
+    `• **Environment**: \`${job.cluster}\`\n` +
     `• **Target Repository**: [${repo}](https://github.com/${repo})\n` +
-    `• **Failure Symptom**: \`BigQuery JOIN type mismatch — INT64 vs STRING\`\n` +
-    `• **Root Cause (RCA)**: Schema discrepancy in \`spark_driver_fix.py\`. The \`customer_id\` join column was cast as \`STRING\` in BigQuery but \`INT64\` in the Postgres operational database.\n` +
-    `• **Linked Jira Ticket**: \`JIRA-1023\` (P1 - Critical)\n` +
+    `• **Failure Symptom**: \`${job.symptom}\`\n` +
+    `• **Root Cause (RCA)**: ${job.rca}\n` +
+    `• **Linked Jira Ticket**: \`${job.jira}\`\n` +
     `• **Automated Remediation**: Proposed fix generated and available in target repository \`${repo}\`.`
   )
 }
