@@ -11,3 +11,9 @@ Thumbs.db
 .idea/
 *.swp
 *.venv
+
+# Environment files
+.env
+.env.*
+!.env.example
+
