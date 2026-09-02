@@ -169,11 +169,11 @@ const jobToIncident = (job, index = 0, approvedJobNames = {}) => {
     assignee: isRealDemo ? 'Meera Rajan' : responder.assignee,
     assigneeInitials: isRealDemo ? 'MR' : responder.assigneeInitials,
     team: isRealDemo ? 'Data Engineering' : (job.team || responder.team),
-    manager: isRealDemo ? 'Suresh Iyer' : responder.manager,
+    manager: isRealDemo ? 'Manohar' : responder.manager,
     status: isApproved ? 'Resolved' : (isRealDemo ? 'Investigating' : (isHardFailure ? 'Investigating' : 'Monitoring')),
     priority: 'P1',
     sla_breach: true,
-    runtime: isRealDemo ? '48m' : job.runtime,
+    runtime: isRealDemo ? '48m 24s' : job.runtime,
     sla_target_mins: job.sla_target_mins,
     sla_overdue_mins: job.sla_overdue_mins,
     tone: isApproved ? 'green' : 'red',
@@ -209,16 +209,39 @@ function IncidentsPage({ config, onOpenJob, approvedJobNames }) {
   const [incidentRows, setIncidentRows] = useState([])
   const [incidentsLoaded, setIncidentsLoaded] = useState(false)
   const [slaDetailRow, setSlaDetailRow] = useState(null)
+
+  const sparkIncident = {
+    id: 'INC-2026-SPARK-01',
+    url: '#',
+    workflow: 'Spark Cluster Orchestration',
+    jobName: 'spark-driver-failure',
+    assignee: 'Meera Rajan',
+    assigneeInitials: 'MR',
+    team: 'Data Engineering',
+    manager: 'Manohar',
+    status: approvedJobNames['spark-driver-failure'] ? 'Resolved' : 'Investigating',
+    priority: 'P1',
+    sla_breach: true,
+    runtime: '48m 24s',
+    tone: approvedJobNames['spark-driver-failure'] ? 'green' : 'red',
+    createdAt: '03-Jul-2026 09:55',
+    updatedAt: '03-Jul-2026 09:58',
+    detail: 'ClassNotFoundException: com.oracle.bmc.http.client.jersey.JerseyClientProperty (Real MobaXterm Trace)',
+    isRealDemo: true,
+  }
+
   useEffect(() => {
     getJobs({ flat: true }).then(({ data }) => {
       const jobs = data?.jobs || []
       const incidentJobs = jobs.filter(j => j.status === 'failed' || j.sla_breach === true)
-      if (incidentJobs.length) {
-        const mapped = incidentJobs.map((job, i) => jobToIncident(job, i, approvedJobNames))
-        mapped.sort((a, b) => (b.isRealDemo ? 1 : 0) - (a.isRealDemo ? 1 : 0))
-        setIncidentRows(mapped)
-      }
-    }).catch(() => {}).finally(() => setIncidentsLoaded(true))
+      const otherMapped = incidentJobs
+        .filter(j => j.name !== 'spark-driver-failure' && j.id !== 'SPARK-LIVE-001')
+        .map((job, i) => jobToIncident(job, i, approvedJobNames))
+      
+      setIncidentRows([sparkIncident, ...otherMapped])
+    }).catch(() => {
+      setIncidentRows([sparkIncident])
+    }).finally(() => setIncidentsLoaded(true))
   }, [approvedJobNames])
   const [query, setQuery] = useState('')
   const [statusFilter, setStatusFilter] = useState('All')
