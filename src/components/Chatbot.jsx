@@ -39,6 +39,97 @@ function extractJiraId(text) {
 }
 
 const JOB_DATABASE = {
+  'SPARK-LIVE-001': {
+    id: 'SPARK-LIVE-001',
+    jobName: 'spark-driver-failure',
+    aiStatus: 'Real Spark Trace & AI RCA',
+    startTime: '02-Sept-2026 10:00 pm',
+    endTime: '03-Jul-2026 10:43 am',
+    status: 'Failed (SLA Breached)',
+    duration: '12h 43m',
+    cluster: 'prod-spark-cluster-us-west',
+    symptom: 'ClassNotFoundException: com.oracle.bmc.http.client.jersey.JerseyClientProperty',
+    rca: 'Missing OCI Jersey client library dependency in PySpark classpath.',
+    jira: 'JIRA-SPARK-01'
+  },
+  'HIST-000062': {
+    id: 'HIST-000062',
+    jobName: 'airflow-dag-reports',
+    aiStatus: 'Telemetry Active',
+    startTime: '31-Aug-2026 02:00 am',
+    endTime: 'Running…',
+    status: 'Running',
+    duration: '42m (Active)',
+    cluster: 'prod-airflow-us-east1',
+    symptom: 'DAG execution active for scheduled morning reports',
+    rca: 'Workflow executing normally across 4 worker nodes.',
+    jira: 'JIRA-AIRFLOW-62'
+  },
+  'HIST-000031': {
+    id: 'HIST-000031',
+    jobName: 'spark-user-features',
+    aiStatus: 'Succeeded',
+    startTime: '31-Aug-2026 02:00 am',
+    endTime: '31-Aug-2026 02:40 am',
+    status: 'Succeeded',
+    duration: '40 minutes',
+    cluster: 'prod-spark-us-east2',
+    symptom: 'Completed without error',
+    rca: 'User feature aggregation completed successfully. 1.2M rows written.',
+    jira: 'JIRA-FEAT-31'
+  },
+  'HIST-000093': {
+    id: 'HIST-000093',
+    jobName: 'risk-score-batch',
+    aiStatus: 'Telemetry Active',
+    startTime: '31-Aug-2026 02:00 am',
+    endTime: 'Running…',
+    status: 'Running',
+    duration: '40m (Active)',
+    cluster: 'prod-bigquery-ml-us-east2',
+    symptom: 'ML inference in progress for daily risk matrix',
+    rca: 'Batch risk calculation running normally.',
+    jira: 'JIRA-RISK-93'
+  },
+  'HIST-000124': {
+    id: 'HIST-000124',
+    jobName: 'inventory-recon-nightly',
+    aiStatus: 'Telemetry Active',
+    startTime: '31-Aug-2026 02:00 am',
+    endTime: 'Running…',
+    status: 'Running',
+    duration: '40m (Active)',
+    cluster: 'prod-dataproc-us-east2',
+    symptom: 'Nightly inventory reconciliation running',
+    rca: 'ETL sync active across 12 partitions.',
+    jira: 'JIRA-INV-124'
+  },
+  'HIST-000155': {
+    id: 'HIST-000155',
+    jobName: 'bq-revenue-report',
+    aiStatus: 'Succeeded',
+    startTime: '31-Aug-2026 02:00 am',
+    endTime: '31-Aug-2026 02:40 am',
+    status: 'Succeeded',
+    duration: '40 minutes',
+    cluster: 'prod-bigquery-us-east1',
+    symptom: 'Completed without error',
+    rca: 'Revenue metrics aggregated successfully for executive dashboard.',
+    jira: 'JIRA-REV-155'
+  },
+  'HIST-000123': {
+    id: 'HIST-000123',
+    jobName: 'inventory-recon-nightly',
+    aiStatus: 'Succeeded',
+    startTime: '30-Aug-2026 02:00 am',
+    endTime: '30-Aug-2026 02:40 am',
+    status: 'Succeeded',
+    duration: '40 minutes',
+    cluster: 'prod-dataproc-us-east2',
+    symptom: 'Completed without error',
+    rca: 'Inventory reconciliation completed cleanly.',
+    jira: 'JIRA-INV-123'
+  },
   'HIST-000089': {
     id: 'HIST-000089',
     jobName: 'risk-score-batch',
@@ -81,8 +172,14 @@ const JOB_DATABASE = {
 }
 
 function extractHistId(text) {
-  const match = text.match(/\b(HIST-[A-Z0-9-]+|JOB-[A-Z0-9-]+)\b/i)
+  const match = text.match(/\b(HIST-[A-Z0-9-]+|JOB-[A-Z0-9-]+|SPARK-LIVE-[0-9]+)\b/i)
   if (match) return match[1].toUpperCase()
+  if (text.match(/\b(HIST0*62|000062)\b/i)) return 'HIST-000062'
+  if (text.match(/\b(HIST0*31|000031)\b/i)) return 'HIST-000031'
+  if (text.match(/\b(HIST0*93|000093)\b/i)) return 'HIST-000093'
+  if (text.match(/\b(HIST0*124|000124)\b/i)) return 'HIST-000124'
+  if (text.match(/\b(HIST0*155|000155)\b/i)) return 'HIST-000155'
+  if (text.match(/\b(HIST0*123|000123)\b/i)) return 'HIST-000123'
   if (text.match(/\b(HIST0*89|000089|risk-score)\b/i)) return 'HIST-000089'
   if (text.match(/\b(HIST0*152|000152|customer-sync)\b/i)) return 'HIST-000152'
   if (text.match(/\b(HIST0*148|000148|spark-driver)\b/i)) return 'HIST-000148'
