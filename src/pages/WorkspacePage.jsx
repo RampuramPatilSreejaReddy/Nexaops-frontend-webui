@@ -357,8 +357,177 @@ function BrainPrompt({ entries }) { const [question, setQuestion] = useState('Wh
 function KnowledgeDetail({ item, onClose }) { return <div className="mx-4 mb-4 rounded-xl border border-blue-200 bg-gradient-to-br from-blue-50 to-white p-4 shadow-sm"><div className="flex items-start justify-between gap-4"><div><div className="flex items-center gap-2"><Sparkles size={16} className="text-blue-600"/><h3 className="text-sm font-semibold text-slate-800">Verified resolution for {item.id}</h3></div><p className="text-xs text-slate-500 mt-1">This resolution was successfully used for a similar production incident.</p></div><button onClick={e => { e.stopPropagation(); onClose() }} className="text-xs font-semibold text-slate-500 hover:text-slate-800">Close</button></div><div className="grid grid-cols-1 md:grid-cols-3 gap-3 mt-4"><div className="md:col-span-2 rounded-lg bg-white border border-blue-100 p-3"><div className="text-[10px] uppercase tracking-wider font-semibold text-slate-400">Recommended fix</div><code className="block mt-2 text-xs text-slate-700 font-mono">{item.detail}</code><p className="text-xs text-slate-500 mt-2">Apply the type normalization before the join, then rerun the affected workflow.</p></div><div className="rounded-lg bg-white border border-blue-100 p-3"><div className="text-[10px] uppercase tracking-wider font-semibold text-slate-400">Evidence</div><div className="text-lg font-mono font-semibold text-green-600 mt-1">{item.tag}</div><div className="text-xs text-slate-500 mt-1">confidence · verified</div></div></div><div className="flex items-center justify-between mt-3"><span className="text-xs text-slate-500">Outcome: incident resolved without rollback</span><button className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-blue-600 text-white text-xs font-semibold hover:bg-blue-700"><Copy size={13}/> Reuse this fix</button></div></div> }
 function KnowledgeEntryModal({ onClose, onSave }) { const [form, setForm] = useState({ title: '', incident: '', category: 'Incident resolution', tags: '', rootCause: '', resolution: '', status: 'Verified', attachments: '' }); const update = event => setForm(value => ({ ...value, [event.target.name]: event.target.value })); const save = event => { event.preventDefault(); if (!form.title.trim()) return; onSave({ id: `KB-${Date.now().toString().slice(-5)}`, name: form.title.trim(), detail: form.resolution.trim() || form.rootCause.trim() || 'Knowledge entry saved', tag: form.status, state: form.category, age: 'Just now', tone: form.status === 'Verified' ? 'green' : 'blue', ...form }) }; const field = 'mt-1 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-700 outline-none focus:border-blue-400'; return <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 p-4" onClick={event => event.target === event.currentTarget && onClose()}><form onSubmit={save} className="max-h-[calc(100vh-2rem)] w-full max-w-2xl overflow-auto rounded-xl border border-slate-200 bg-white p-5 shadow-2xl"><div className="flex items-start justify-between gap-4"><div><h2 className="text-lg font-semibold text-slate-900">Add knowledge entry</h2><p className="mt-1 text-xs text-slate-500">Capture a reusable incident resolution for the operations team.</p></div><button type="button" onClick={onClose} aria-label="Close add knowledge" className="text-slate-400 hover:text-slate-700"><XCircle size={18}/></button></div><div className="mt-5 grid gap-3 sm:grid-cols-2"><label className="text-xs font-medium text-slate-600 sm:col-span-2">Title<input required name="title" value={form.title} onChange={update} className={field}/></label><label className="text-xs font-medium text-slate-600">Incident or workflow<input name="incident" value={form.incident} onChange={update} className={field}/></label><label className="text-xs font-medium text-slate-600">Category<select name="category" value={form.category} onChange={update} className={field}><option>Incident resolution</option><option>Workflow optimization</option><option>Runbook</option><option>Operational decision</option></select></label><label className="text-xs font-medium text-slate-600">Tags<input name="tags" value={form.tags} onChange={update} className={field}/></label><label className="text-xs font-medium text-slate-600">Status<select name="status" value={form.status} onChange={update} className={field}><option>Verified</option><option>Draft</option><option>Under review</option></select></label><label className="text-xs font-medium text-slate-600 sm:col-span-2">Root cause<textarea name="rootCause" value={form.rootCause} onChange={update} rows="3" className={field}/></label><label className="text-xs font-medium text-slate-600 sm:col-span-2">Resolution<textarea name="resolution" value={form.resolution} onChange={update} rows="3" className={field}/></label><label className="text-xs font-medium text-slate-600 sm:col-span-2">Attachments<input name="attachments" type="file" multiple onChange={event => setForm(value => ({ ...value, attachments: [...event.target.files].map(file => file.name).join(', ') }))} className={field}/>{form.attachments && <span className="mt-1 block text-[10px] text-slate-400">{form.attachments}</span>}</label></div><div className="mt-5 flex justify-end gap-2 border-t border-slate-100 pt-4"><button type="button" onClick={onClose} className="rounded-lg px-3 py-2 text-xs font-semibold text-slate-500 hover:bg-slate-50">Cancel</button><button className="rounded-lg bg-blue-600 px-3.5 py-2 text-xs font-semibold text-white hover:bg-blue-700">Save knowledge</button></div></form></div> }
 const INTEGRATIONS = [{ id: '01', name: 'GitHub Actions', detail: 'CI/CD pipeline events', tag: 'Healthy', state: '12 workflows', age: 'Synced now', type: 'GitHub', source: 'Repository events' }, { id: '02', name: 'BigQuery', detail: 'Warehouse job telemetry', tag: 'Healthy', state: '48 jobs', age: 'Synced 2m ago', type: 'BigQuery', source: 'Data warehouse' }, { id: '03', name: 'Apache Kafka', detail: 'Streaming health signals', tag: 'Attention', state: '2 topics', age: 'Checked 8m ago', type: 'Kafka', source: 'Event streams' }]
-function IntegrationsModule({ config }) { const [items, setItems] = useState(INTEGRATIONS), [query, setQuery] = useState(''), [filtersOpen, setFiltersOpen] = useState(false), [filters, setFilters] = useState({ type: 'All', status: 'All', source: 'All', sync: 'All' }), [draft, setDraft] = useState(filters), [connectOpen, setConnectOpen] = useState(false), [selected, setSelected] = useState(null); const rows = items.filter(item => `${item.name} ${item.detail} ${item.type}`.toLowerCase().includes(query.toLowerCase()) && (filters.type === 'All' || item.type === filters.type) && (filters.status === 'All' || item.tag === filters.status) && (filters.source === 'All' || item.source === filters.source) && (filters.sync === 'All' || (filters.sync === 'Recent' ? /now|2m/.test(item.age) : !/now|2m/.test(item.age)))); const control = 'mt-1 w-full rounded-lg border border-slate-200 bg-slate-50 px-2 py-1.5 text-xs text-slate-700 outline-none'; return <div className="min-h-full shrink-0 bg-[#f7f9fc] p-5 md:p-6"><div className="mx-auto flex max-w-[1500px] flex-col gap-5"><PageHeader config={config} onAction={() => setConnectOpen(true)}/><section className="grid grid-cols-1 gap-4 md:grid-cols-3"><Info icon={Network} title="Event throughput" value="12.8k" text="events received today"/><Info icon={CheckCircle2} title="Sync success" value="99.8%" text="over the last 24 hours"/><Info icon={Clock3} title="Last full sync" value="2m" text="across all services"/></section><section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm"><div className="flex items-center justify-between gap-4 border-b border-slate-200 px-4 py-3"><div className="flex items-center gap-2 text-sm font-semibold text-slate-800"><PlugZap size={16} className="text-blue-600"/> Connected services</div><div className="flex gap-2"><div className="relative hidden sm:block"><Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400"/><input value={query} onChange={event => setQuery(event.target.value)} aria-label="Search integrations" placeholder="Search..." className="w-44 rounded-lg border border-slate-200 bg-slate-50 py-1.5 pl-8 pr-3 text-xs outline-none focus:border-blue-400"/></div><div className="relative"><button onClick={() => { setDraft(filters); setFiltersOpen(value => !value) }} aria-label="Filter integrations" className="grid h-8 w-8 place-items-center rounded-lg border border-slate-200 bg-white text-slate-500 hover:text-blue-600"><SlidersHorizontal size={14}/></button>{filtersOpen && <div className="absolute right-0 z-30 mt-2 w-64 rounded-xl border border-slate-200 bg-white p-3 shadow-xl"><div className="grid grid-cols-2 gap-3"><label className="text-[10px] font-semibold text-slate-500">Integration Type<select value={draft.type} onChange={event => setDraft(value => ({ ...value, type: event.target.value }))} className={control}><option>All</option><option>GitHub</option><option>BigQuery</option><option>Kafka</option><option>Airflow</option><option>Snowflake</option><option>Databricks</option><option>SFTP</option><option>REST API</option></select></label><label className="text-[10px] font-semibold text-slate-500">Connection Status<select value={draft.status} onChange={event => setDraft(value => ({ ...value, status: event.target.value }))} className={control}><option>All</option><option>Healthy</option><option>Attention</option><option>Failed</option><option>Disconnected</option></select></label><label className="text-[10px] font-semibold text-slate-500">Data Source<select value={draft.source} onChange={event => setDraft(value => ({ ...value, source: event.target.value }))} className={control}><option>All</option><option>Repository events</option><option>Data warehouse</option><option>Event streams</option></select></label><label className="text-[10px] font-semibold text-slate-500">Last Sync<select value={draft.sync} onChange={event => setDraft(value => ({ ...value, sync: event.target.value }))} className={control}><option>All</option><option>Recent</option><option>Older</option></select></label></div><div className="mt-3 flex justify-between border-t border-slate-100 pt-3"><button onClick={() => { setDraft({ type: 'All', status: 'All', source: 'All', sync: 'All' }); setFilters({ type: 'All', status: 'All', source: 'All', sync: 'All' }) }} className="text-[10px] font-semibold text-slate-500">Reset</button><div className="flex gap-2"><button onClick={() => { setFilters({ type: 'All', status: 'All', source: 'All', sync: 'All' }); setFiltersOpen(false) }} className="text-[10px] font-semibold text-slate-500">Clear All</button><button onClick={() => { setFilters(draft); setFiltersOpen(false) }} className="rounded bg-blue-600 px-2 py-1 text-[10px] font-semibold text-white">Apply</button></div></div></div>}</div></div></div><div className="divide-y divide-slate-100">{rows.map(item => <button key={item.id} onClick={() => setSelected(item)} className="integration-row grid w-full grid-cols-[auto_minmax(220px,1.5fr)_minmax(160px,1fr)_92px_112px_32px] items-center gap-4 px-4 py-3.5 text-left transition-colors hover:bg-slate-50"><span className="grid h-8 w-8 place-items-center rounded-lg bg-slate-100 text-slate-500"><Database size={15}/></span><span className="min-w-0"><span className="block truncate text-xs font-semibold text-slate-800">{item.id} <i className="mx-1 not-italic text-slate-300">/</i> {item.name}</span><span className="mt-1 block truncate text-xs text-slate-400">{item.detail}</span></span><span className="truncate text-xs text-slate-500">{item.state}</span><span onClick={event => event.stopPropagation()} title={`${item.tag}: ${item.tag === 'Healthy' ? 'Connection is syncing normally' : 'Requires review'}`} className={`justify-self-start rounded-md border px-2 py-1 text-[11px] font-semibold ${item.tag === 'Healthy' ? badge.green : badge.amber}`}>{item.tag}</span><span className="whitespace-nowrap text-xs text-slate-500">{item.age}</span><ChevronRight size={16} className="text-slate-400"/></button>)}{!rows.length && <div className="py-10 text-center text-xs text-slate-400">No integrations match the selected filters.</div>}</div></section></div>{connectOpen && <ConnectIntegrationModal onClose={() => setConnectOpen(false)} onSave={item => { setItems(values => [{ id: String(values.length + 1).padStart(2, '0'), tag: 'Healthy', state: 'Ready to sync', age: 'Synced now', source: 'Custom connection', ...item }, ...values]); setConnectOpen(false) }}/>} {selected && <IntegrationDetail item={selected} onClose={() => setSelected(null)} onRemove={() => { setItems(values => values.filter(value => value.id !== selected.id)); setSelected(null) }}/>}</div> }
-function ConnectIntegrationModal({ onClose, onSave }) { const [form, setForm] = useState({ name: 'GitHub', detail: '', connection: '', auth: '' }), [tested, setTested] = useState(false); const field = 'mt-1 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-700 outline-none focus:border-blue-400'; return <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 p-4" onClick={event => event.target === event.currentTarget && onClose()}><form onSubmit={event => { event.preventDefault(); onSave({ name: form.name, type: form.name, detail: form.detail || `${form.name} connection`, connection: form.connection, auth: form.auth }) }} className="w-full max-w-lg rounded-xl border border-slate-200 bg-white p-5 shadow-2xl"><h2 className="text-lg font-semibold text-slate-900">Connect service</h2><div className="mt-4 grid gap-3"><label className="text-xs font-medium text-slate-600">Service<select value={form.name} onChange={event => setForm(value => ({ ...value, name: event.target.value }))} className={field}>{['GitHub','BigQuery','Kafka','Airflow','Snowflake','Databricks','SFTP','REST API'].map(name => <option key={name}>{name}</option>)}</select></label><label className="text-xs font-medium text-slate-600">Connection details<input required value={form.connection} onChange={event => setForm(value => ({ ...value, connection: event.target.value }))} placeholder="URL, project, host, or endpoint" className={field}/></label><label className="text-xs font-medium text-slate-600">Authentication<input value={form.auth} onChange={event => setForm(value => ({ ...value, auth: event.target.value }))} placeholder="Token, service account, or key reference" className={field}/></label><label className="text-xs font-medium text-slate-600">Description<input value={form.detail} onChange={event => setForm(value => ({ ...value, detail: event.target.value }))} className={field}/></label>{tested && <p className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-700">Connection test passed.</p>}</div><div className="mt-5 flex justify-end gap-2 border-t border-slate-100 pt-4"><button type="button" onClick={onClose} className="rounded-lg px-3 py-2 text-xs font-semibold text-slate-500">Cancel</button><button type="button" onClick={() => setTested(true)} className="rounded-lg border border-blue-300 px-3 py-2 text-xs font-semibold text-blue-600">Test Connection</button><button className="rounded-lg bg-blue-600 px-3 py-2 text-xs font-semibold text-white">Save integration</button></div></form></div> }
+function IntegrationsModule({ config }) { const [items, setItems] = useState(INTEGRATIONS), [query, setQuery] = useState(''), [filtersOpen, setFiltersOpen] = useState(false), [filters, setFilters] = useState({ type: 'All', status: 'All', source: 'All', sync: 'All' }), [draft, setDraft] = useState(filters), [connectOpen, setConnectOpen] = useState(false), [selected, setSelected] = useState(null); const rows = items.filter(item => `${item.name} ${item.detail} ${item.type}`.toLowerCase().includes(query.toLowerCase()) && (filters.type === 'All' || item.type === filters.type) && (filters.status === 'All' || item.tag === filters.status) && (filters.source === 'All' || item.source === filters.source) && (filters.sync === 'All' || (filters.sync === 'Recent' ? /now|2m/.test(item.age) : !/now|2m/.test(item.age)))); const control = 'mt-1 w-full rounded-lg border border-slate-200 bg-slate-50 px-2 py-1.5 text-xs text-slate-700 outline-none'; return <div className="min-h-full shrink-0 bg-[#f7f9fc] p-5 md:p-6"><div className="mx-auto flex max-w-[1500px] flex-col gap-5"><PageHeader config={config} onAction={() => setConnectOpen(true)}/><section className="grid grid-cols-1 gap-4 md:grid-cols-3"><Info icon={Network} title="Event throughput" value="12.8k" text="events received today"/><Info icon={CheckCircle2} title="Sync success" value="99.8%" text="over the last 24 hours"/><Info icon={Clock3} title="Last full sync" value="2m" text="across all services"/></section><section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm"><div className="flex items-center justify-between gap-4 border-b border-slate-200 px-4 py-3"><div className="flex items-center gap-2 text-sm font-semibold text-slate-800"><PlugZap size={16} className="text-blue-600"/> Connected services</div><div className="flex gap-2"><div className="relative hidden sm:block"><Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400"/><input value={query} onChange={event => setQuery(event.target.value)} aria-label="Search integrations" placeholder="Search..." className="w-44 rounded-lg border border-slate-200 bg-slate-50 py-1.5 pl-8 pr-3 text-xs outline-none focus:border-blue-400"/></div><div className="relative"><button onClick={() => { setDraft(filters); setFiltersOpen(value => !value) }} aria-label="Filter integrations" className="grid h-8 w-8 place-items-center rounded-lg border border-slate-200 bg-white text-slate-500 hover:text-blue-600"><SlidersHorizontal size={14}/></button>{filtersOpen && <div className="absolute right-0 z-30 mt-2 w-64 rounded-xl border border-slate-200 bg-white p-3 shadow-xl"><div className="grid grid-cols-2 gap-3"><label className="text-[10px] font-semibold text-slate-500">Integration Type<select value={draft.type} onChange={event => setDraft(value => ({ ...value, type: event.target.value }))} className={control}><option>All</option><option>GitHub</option><option>BigQuery</option><option>Kafka</option><option>Airflow</option><option>Snowflake</option><option>Databricks</option><option>SFTP</option><option>REST API</option></select></label><label className="text-[10px] font-semibold text-slate-500">Connection Status<select value={draft.status} onChange={event => setDraft(value => ({ ...value, status: event.target.value }))} className={control}><option>All</option><option>Healthy</option><option>Attention</option><option>Failed</option><option>Disconnected</option></select></label><label className="text-[10px] font-semibold text-slate-500">Data Source<select value={draft.source} onChange={event => setDraft(value => ({ ...value, source: event.target.value }))} className={control}><option>All</option><option>Repository events</option><option>Data warehouse</option><option>Event streams</option></select></label><label className="text-[10px] font-semibold text-slate-500">Last Sync<select value={draft.sync} onChange={event => setDraft(value => ({ ...value, sync: event.target.value }))} className={control}><option>All</option><option>Recent</option><option>Older</option></select></label></div><div className="mt-3 flex justify-between border-t border-slate-100 pt-3"><button onClick={() => { setDraft({ type: 'All', status: 'All', source: 'All', sync: 'All' }); setFilters({ type: 'All', status: 'All', source: 'All', sync: 'All' }) }} className="text-[10px] font-semibold text-slate-500">Reset</button><div className="flex gap-2"><button onClick={() => { setFilters({ type: 'All', status: 'All', source: 'All', sync: 'All' }); setFiltersOpen(false) }} className="text-[10px] font-semibold text-slate-500">Clear All</button><button onClick={() => { setFilters(draft); setFiltersOpen(false) }} className="rounded bg-blue-600 px-2 py-1 text-[10px] font-semibold text-white">Apply</button></div></div></div>}</div></div></div><div className="divide-y divide-slate-100">{rows.map(item => <button key={item.id} onClick={() => setSelected(item)} className="integration-row grid w-full grid-cols-[auto_minmax(220px,1.5fr)_minmax(160px,1fr)_92px_112px_32px] items-center gap-4 px-4 py-3.5 text-left transition-colors hover:bg-slate-50"><span className="grid h-8 w-8 place-items-center rounded-lg bg-slate-100 text-slate-500"><Database size={15}/></span><span className="min-w-0"><span className="block truncate text-xs font-semibold text-slate-800">{item.id} <i className="mx-1 not-italic text-slate-300">/</i> {item.name}</span><span className="mt-1 block truncate text-xs text-slate-400">{item.detail}</span></span><span className="truncate text-xs text-slate-500">{item.state}</span><span onClick={event => event.stopPropagation()} title={`${item.tag}: ${item.tag === 'Healthy' ? 'Connection is syncing normally' : 'Requires review'}`} className={`justify-self-start rounded-md border px-2 py-1 text-[11px] font-semibold ${item.tag === 'Healthy' ? badge.green : badge.amber}`}>{item.tag}</span><span className="whitespace-nowrap text-xs text-slate-500">{item.age}</span><ChevronRight size={16} className="text-slate-400"/></button>)}{!rows.length && <div className="py-10 text-center text-xs text-slate-400">No integrations match the selected filters.</div>}</div></section></div>{connectOpen && <ConnectIntegrationModal onClose={() => setConnectOpen(false)} onSave={item => { setItemfunction ConnectIntegrationModal({ onClose, onSave }) {
+  const [form, setForm] = useState({
+    name: 'GitHub',
+    detail: 'Repository & CI/CD workflow automation',
+    connection: 'https://github.com/RampuramPatilSreejaReddy/Nexaops-frontend-webui',
+    auth: 'github_pat_11A...x9Z'
+  })
+  const [testing, setTesting] = useState(false)
+  const [testResult, setTestResult] = useState(null)
+
+  const PRESETS = {
+    'GitHub': {
+      detail: 'Repository & CI/CD workflow automation',
+      connection: 'https://github.com/RampuramPatilSreejaReddy/Nexaops-frontend-webui',
+      auth: 'github_pat_11A...x9Z'
+    },
+    'Neon Postgres': {
+      detail: 'Primary operations & resolution store',
+      connection: 'postgresql://neondb_owner:npg_vYHT9Se7xjIq@ep-wild-star-aybx7rkt-pooler.c-5.us-east-2.aws.neon.tech/neondb?sslmode=require',
+      auth: 'Database Managed SSL'
+    },
+    'BigQuery': {
+      detail: 'Warehouse telemetry & job logs',
+      connection: 'bigquery://modelops-prod-dataset-2026',
+      auth: 'gcp_service_account_key.json'
+    },
+    'OpenRouter AI': {
+      detail: 'LLM resolution engine for RCA & fixes',
+      connection: 'https://openrouter.ai/api/v1/chat/completions',
+      auth: 'sk-or-v1-90862c3a...df'
+    },
+    'Kafka': {
+      detail: 'Streaming health signals & broker events',
+      connection: 'kafka.prod-cluster.internal:9092',
+      auth: 'SASL_SSL / ScramSHA256'
+    }
+  }
+
+  const handleServiceChange = (serviceName) => {
+    const preset = PRESETS[serviceName] || { detail: `${serviceName} connection`, connection: '', auth: '' }
+    setForm({ name: serviceName, ...preset })
+    setTestResult(null)
+  }
+
+  const runConnectionTest = () => {
+    setTesting(true)
+    setTestResult(null)
+    setTimeout(() => {
+      setTesting(false)
+      setTestResult({
+        success: true,
+        latency: '34ms',
+        ssl: 'TLS v1.3 Verified',
+        message: `Successfully connected to ${form.name} endpoint. Configuration valid!`
+      })
+    }, 1100)
+  }
+
+  const field = 'mt-1 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-700 outline-none focus:border-blue-400 font-mono'
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 p-4 backdrop-blur-sm" onClick={event => event.target === event.currentTarget && onClose()}>
+      <form onSubmit={event => {
+        event.preventDefault()
+        onSave({
+          name: form.name,
+          type: form.name,
+          detail: form.detail || `${form.name} connection`,
+          connection: form.connection,
+          auth: form.auth
+        })
+      }} className="w-full max-w-lg overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl">
+        <header className="border-b border-slate-100 px-6 py-4">
+          <h2 className="text-base font-bold text-slate-900">Connect Service & Test Connection String</h2>
+          <p className="mt-0.5 text-xs text-slate-500">Configure connection strings, API tokens, or repository endpoints.</p>
+        </header>
+
+        <div className="space-y-4 p-6">
+          <label className="block text-xs font-semibold text-slate-700">
+            Service Presets
+            <select
+              value={form.name}
+              onChange={e => handleServiceChange(e.target.value)}
+              className="mt-1 w-full rounded-lg border border-blue-200 bg-blue-50/60 px-3 py-2 text-xs font-bold text-blue-700 outline-none focus:border-blue-500"
+            >
+              {Object.keys(PRESETS).map(name => <option key={name}>{name}</option>)}
+            </select>
+          </label>
+
+          <label className="block text-xs font-semibold text-slate-700">
+            Connection String / Endpoint <span className="text-red-500">*</span>
+            <input
+              required
+              value={form.connection}
+              onChange={event => { setForm(value => ({ ...value, connection: event.target.value })); setTestResult(null) }}
+              placeholder="e.g. postgresql://user:pass@host/db or https://github.com/..."
+              className={field}
+            />
+          </label>
+
+          <label className="block text-xs font-semibold text-slate-700">
+            Authentication Key / Token
+            <input
+              value={form.auth}
+              onChange={event => { setForm(value => ({ ...value, auth: event.target.value })); setTestResult(null) }}
+              placeholder="Token, API key, or SSL certificate"
+              className={field}
+            />
+          </label>
+
+          <label className="block text-xs font-semibold text-slate-700">
+            Description
+            <input
+              value={form.detail}
+              onChange={event => setForm(value => ({ ...value, detail: event.target.value }))}
+              placeholder="Short description"
+              className="mt-1 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-700 outline-none focus:border-blue-400"
+            />
+          </label>
+
+          {testing && (
+            <div className="flex items-center gap-3 rounded-lg border border-blue-200 bg-blue-50/80 px-4 py-3 text-xs text-blue-700">
+              <svg className="h-4 w-4 animate-spin text-blue-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
+              </svg>
+              <span>Testing connection string & verifying handshake...</span>
+            </div>
+          )}
+
+          {testResult && (
+            <div className="rounded-lg border border-emerald-300 bg-emerald-50/80 p-3.5 text-xs text-emerald-800">
+              <div className="flex items-center justify-between font-bold">
+                <span className="flex items-center gap-1.5 text-emerald-700">✓ Connection Test Passed</span>
+                <span className="font-mono text-[10px] bg-emerald-100 px-2 py-0.5 rounded text-emerald-800">{testResult.latency} · {testResult.ssl}</span>
+              </div>
+              <p className="mt-1 text-[11px] text-emerald-700">{testResult.message}</p>
+            </div>
+          )}
+        </div>
+
+        <footer className="flex items-center justify-between border-t border-slate-100 bg-slate-50 px-6 py-4">
+          <button
+            type="button"
+            onClick={runConnectionTest}
+            disabled={testing || !form.connection}
+            className="inline-flex items-center gap-2 rounded-lg border border-blue-300 bg-white px-4 py-2 text-xs font-semibold text-blue-600 shadow-sm transition hover:bg-blue-50 disabled:opacity-50"
+          >
+            {testing ? 'Testing...' : 'Test Connection'}
+          </button>
+
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={onClose}
+              className="rounded-lg border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              className="rounded-lg bg-blue-600 px-4 py-2 text-xs font-semibold text-white shadow-sm hover:bg-blue-700"
+            >
+              Save Integration
+            </button>
+          </div>
+        </footer>
+      </form>
+    </div>
+  )
+}
 function IntegrationDetail({ item, onClose, onRemove }) { const [paused, setPaused] = useState(false), [message, setMessage] = useState(''); const action = text => setMessage(text); return <div className="fixed inset-0 z-50 overflow-auto bg-[#f7f9fc] p-5 md:p-6"><div className="mx-auto max-w-[1200px]"><div className="mb-5 flex items-start justify-between"><div><h2 className="text-xl font-semibold text-slate-900">{item.name}</h2><p className="mt-1 text-xs text-slate-500">{item.detail}</p></div><button onClick={onClose} className="text-xs font-semibold text-slate-500 hover:text-slate-800">Close</button></div>{message && <div className="mb-4 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-700">{message}</div>}<div className="grid gap-4 lg:grid-cols-[1.3fr_.7fr]"><div className="space-y-4"><Panel title="Connection information" icon={PlugZap}><div className="grid grid-cols-2 gap-4 text-xs"><Info icon={Database} title="Connection" value={item.connection || item.source} text="Configured endpoint"/><Info icon={ShieldCheck} title="Authentication" value={item.auth || 'Managed'} text="Credential status active"/></div></Panel><Panel title="Sync history & health" icon={Activity}><div className="text-xs text-slate-600">Last sync: {item.age} · Success rate: 99.8% · Latency: 240ms</div><div className="mt-4 rounded-lg bg-slate-50 p-3 text-xs text-slate-500">Recent events: configuration validated, workflow mappings refreshed, telemetry received.</div></Panel><Panel title="Recent logs & workflow mappings" icon={FileText}><div className="space-y-2 text-xs text-slate-600"><p>✓ Connection authenticated successfully</p><p>✓ Synced workflow events and health signals</p><p>Mapped workflows: payments-etl-daily, customer-sync-api</p></div></Panel></div><aside className="space-y-4"><Panel title="Actions" icon={Zap}><div className="flex flex-col gap-2"><button onClick={() => action('Connection test passed.')} className="rounded-lg border border-blue-300 px-3 py-2 text-xs font-semibold text-blue-600">Test Connection</button><button onClick={() => action('Sync started.')} className="rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-600">Sync Now</button><button onClick={() => action('Configuration editor opened.')} className="rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-600">Edit Configuration</button><button onClick={() => { setPaused(value => !value); action(paused ? 'Sync resumed.' : 'Sync paused.') }} className="rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-600">{paused ? 'Resume Sync' : 'Pause Sync'}</button><button onClick={() => action('Reconnect attempt started.')} className="rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-600">Reconnect</button><button onClick={onRemove} className="rounded-lg border border-red-200 px-3 py-2 text-xs font-semibold text-red-600">Remove Integration</button></div></Panel></aside></div></div></div> }
 function IntegrationHealth() { return <section className="grid grid-cols-1 md:grid-cols-3 gap-4"><Info icon={Network} title="Event throughput" value="12.8k" text="events received today"/><Info icon={CheckCircle2} title="Sync success" value="99.8%" text="over the last 24 hours"/><Info icon={Clock3} title="Last full sync" value="2m" text="across all services"/></section> }
 function RunbookCoverage() { return <section className="grid grid-cols-1 lg:grid-cols-2 gap-4"><div className="bg-white border border-slate-200 rounded-xl p-4"><div className="flex items-center justify-between"><span className="text-sm font-semibold text-slate-800">Automation coverage</span><span className="text-xs font-mono text-blue-600">72%</span></div><div className="h-2 rounded-full bg-slate-100 overflow-hidden mt-4"><div className="h-full w-[72%] bg-blue-500 rounded-full"/></div><p className="text-xs text-slate-500 mt-3">18 of 25 common incident patterns have a linked runbook.</p></div><div className="bg-white border border-slate-200 rounded-xl p-4"><div className="flex items-center gap-2 text-sm font-semibold text-slate-800"><Zap size={16} className="text-amber-500"/> Suggested next runbook</div><p className="text-xs text-slate-500 mt-2">Document the customer-sync API recovery path based on 3 related incidents.</p><button className="mt-3 text-xs font-semibold text-blue-600">Draft from incidents <ChevronRight size={13} className="inline"/></button></div></section> }
