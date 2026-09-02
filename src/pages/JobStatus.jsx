@@ -115,22 +115,16 @@ function EmailApprovalModal({ job,onClose }) {
 }
 function Field({ label,required,value,onChange }) { return <label className="block text-[11px] font-semibold text-slate-600">{label}{required && <span className="ml-0.5 text-red-500">*</span>}<input value={value} onChange={e => onChange(e.target.value)} className="mt-1.5 h-10 w-full rounded-lg border border-slate-200 px-3 text-xs font-normal text-slate-700 outline-none focus:border-blue-400"/></label> }
 
-const JOBS = [
-  ['j1','ETL Pipelines','Kafka → Snowflake','payments-etl-daily','06:00:00',null,'1h 24m','running'], ['j2','BigQuery Jobs','BigQuery ML','risk-score-batch','04:10:00','05:48:00','38m 14s','success'], ['j3','ETL Pipelines','CRM → DW','customer-sync-api','08:14:00','08:14:32','32s','failed'], ['j4','Batch Reports','PostgreSQL','inventory-recon-nightly','04:00:00',null,'2h 14m','warning'], ['j5','Kafka Streams','Real-time','fraud-detection-stream','00:00:00',null,'Continuous','running'], ['j6','BigQuery Jobs','BigQuery SQL','bq-revenue-report','08:14:00','08:14:32','32s','failed'], ['j7','Airflow DAGs','Airflow','airflow-dag-reports','07:00:00',null,'48m','warning'], ['j8','Batch Reports','Airflow DAG','report-gen-monthly',null,null,null,'queued'], ['j9','ETL Pipelines','REST API → BQ','supplier-data-sync','05:30:00','06:14:00','44m 12s','success'],
-].map(([id,workflow,type,name,start,end,runtime,status]) => ({ id,workflow,type,name,start,end,runtime,status }))
-
 const FILTERS = [['all','All','bg-slate-400'],['running','Running','bg-blue-500'],['failed','Failed','bg-red-500'],['success','Succeeded','bg-emerald-500'],['warning','SLA Risk','bg-amber-500']]
 const STYLES = { running:['Running','bg-blue-50 text-blue-700 border-blue-200','bg-blue-500'], success:['Succeeded','bg-emerald-50 text-emerald-700 border-emerald-200','bg-emerald-500'], failed:['Failed','bg-red-50 text-red-700 border-red-200','bg-red-500'], warning:['SLA Risk','bg-amber-50 text-amber-700 border-amber-200','bg-amber-500'], queued:['Queued','bg-slate-100 text-slate-500 border-slate-200','bg-slate-400'] }
 const TEAMS = ['All Teams','Data Engineering','Marketing','Finance','Human Resources (HR)','Sales','Customer Support','Product','Operations','Supply Chain','IT Infrastructure','Security','Analytics','Machine Learning','Platform Engineering']
 const ENVIRONMENTS = ['All Environments','Production','Staging','Development','Testing','QA','UAT']
-const FALLBACK_TEAMS = ['Data Engineering','Analytics','Customer Support','Finance','Machine Learning','Product','Operations','Marketing','Platform Engineering']
-const FALLBACK_ENVIRONMENTS = ['Production','Staging','Production','QA','Development','Production','Testing','UAT','Production']
-const FALLBACK_DATES = ['2024-05-20','2024-05-21','2024-05-20','2024-05-22','2024-05-23','2024-05-24','2024-05-25','2024-05-26','2024-05-27']
+
 const datePart = (value) => {
   const match = value && String(value).match(/^\d{4}-\d{2}-\d{2}/)
   return match ? match[0] : null
 }
-const timestampFor = (date, time) => !time ? null : datePart(time) ? String(time) : `${date}T${time}`
+const timestampFor = (date, time) => !time ? null : datePart(time) ? String(time) : date ? `${date}T${time}` : String(time)
 const formatTimestamp = (value) => {
   if (!value) return '—'
   const date = new Date(value)
@@ -139,12 +133,20 @@ const formatTimestamp = (value) => {
   const part = (type) => parts.find(item => item.type === type)?.value
   return `${part('day')}-${part('month')}-${part('year')} ${part('hour')}:${part('minute')} ${part('dayPeriod')}`
 }
-const normalizeJob = (item, index = 0) => {
-  const fallbackDate = FALLBACK_DATES[index % FALLBACK_DATES.length]
+const normalizeJob = (item) => {
   const start = item.start ?? item.startTime ?? item.startedAt ?? item.startTimestamp
   const end = item.end ?? item.endTime ?? item.endedAt ?? item.endTimestamp
-  const startDate = datePart(start) || datePart(item.startTimestamp) || datePart(item.jobDate || item.date || item.startDate || item.createdAt) || fallbackDate
-  return { ...item, start, end, startTimestamp: timestampFor(startDate, start), endTimestamp: timestampFor(startDate, end), team: item.team || item.ownerTeam || FALLBACK_TEAMS[index % FALLBACK_TEAMS.length], environment: item.environment || item.env || FALLBACK_ENVIRONMENTS[index % FALLBACK_ENVIRONMENTS.length], jobDate: startDate }
+  const startDate = datePart(start) || datePart(item.startTimestamp) || datePart(item.jobDate || item.date || item.startDate || item.createdAt)
+  return {
+    ...item,
+    start,
+    end,
+    startTimestamp: timestampFor(startDate, start),
+    endTimestamp: timestampFor(startDate, end),
+    team: item.team || item.ownerTeam || item.workflow || 'Data Engineering',
+    environment: item.environment || item.env || 'Production',
+    jobDate: startDate
+  }
 }
 
 function JobRowsSkeleton({ rows = 6 }) {
@@ -163,7 +165,7 @@ function JobRowsSkeleton({ rows = 6 }) {
 }
 
 export default function JobStatus({ initialJobName, onConsumeInitialJob, onApprove, resolutionCache }) {
-  const [jobs,setJobs] = useState(() => []), [filter,setFilter] = useState('all'), [team,setTeam] = useState('All Teams'), [environment,setEnvironment] = useState('All Environments'), [period,setPeriod] = useState(''), [dateOpen,setDateOpen] = useState(false), [startDate,setStartDate] = useState('2024-05-20'), [endDate,setEndDate] = useState('2024-05-27'), [appliedRange,setAppliedRange] = useState(null), [query,setQuery] = useState(''), [job,setJob] = useState(null), [jobsLoaded,setJobsLoaded] = useState(false), [chatOpen,setChatOpen] = useState(false), [expandedIds, setExpandedIds] = useState({}), [childrenById, setChildrenById] = useState({})
+  const [jobs,setJobs] = useState(() => []), [filter,setFilter] = useState('all'), [team,setTeam] = useState('All Teams'), [environment,setEnvironment] = useState('All Environments'), [period,setPeriod] = useState(''), [dateOpen,setDateOpen] = useState(false), [startDate,setStartDate] = useState(''), [endDate,setEndDate] = useState(''), [appliedRange,setAppliedRange] = useState(null), [query,setQuery] = useState(''), [job,setJob] = useState(null), [jobsLoaded,setJobsLoaded] = useState(false), [chatOpen,setChatOpen] = useState(false), [expandedIds, setExpandedIds] = useState({}), [childrenById, setChildrenById] = useState({})
   const [slaDetailRow, setSlaDetailRow] = useState(null)
   useEffect(() => {
     if (!initialJobName || !jobsLoaded) return
