@@ -457,47 +457,74 @@ function IntegrationsModule({ config }) {
   )
 }
 
-function ConnectIntegrationModal({ onClose, onSave }) {
-  const [form, setForm] = useState({
+function ConnectIntegrationModal({ onClose, onSave, initialData }) {
+  const [form, setForm] = useState(() => initialData ? {
+    name: initialData.name || 'GitHub',
+    detail: initialData.detail || '',
+    connection: initialData.connection || initialData.source || '',
+    auth: initialData.auth || '',
+    org: initialData.org || '',
+    targetRepo: initialData.targetRepo || ''
+  } : {
     name: 'GitHub',
-    detail: 'Repository & CI/CD workflow automation (nexaops-test-repo)',
-    connection: 'https://github.com/RampuramPatilSreejaReddy/nexaops-test-repo',
-    auth: 'github_pat_11A_nexaops_test_repo_token'
+    detail: '',
+    connection: '',
+    auth: '',
+    org: '',
+    targetRepo: ''
   })
   const [testing, setTesting] = useState(false)
   const [testResult, setTestResult] = useState(null)
 
   const PRESETS = {
     'GitHub': {
-      detail: 'Repository & CI/CD workflow automation (nexaops-test-repo)',
-      connection: 'https://github.com/RampuramPatilSreejaReddy/nexaops-test-repo',
-      auth: 'github_pat_11A_nexaops_test_repo_token'
+      detailPlaceholder: 'Enterprise GitHub Connection & Automation',
+      connectionPlaceholder: 'https://github.com (or Enterprise Server URL)',
+      authPlaceholder: 'github_pat_11A... or App Private Key',
+      targetRepoPlaceholder: 'RampuramPatilSreejaReddy/nexaops-test-repo',
+      orgPlaceholder: 'RampuramPatilSreejaReddy'
     },
     'Neon Postgres': {
-      detail: 'Primary operations & resolution store',
-      connection: 'postgresql://neondb_owner:npg_vYHT9Se7xjIq@ep-wild-star-aybx7rkt-pooler.c-5.us-east-2.aws.neon.tech/neondb?sslmode=require',
-      auth: 'Database Managed SSL'
+      detailPlaceholder: 'Primary operations database',
+      connectionPlaceholder: 'postgresql://user:pass@ep-wild-star.neon.tech/neondb?sslmode=require',
+      authPlaceholder: 'Database SSL Certificate / Password',
+      targetRepoPlaceholder: '',
+      orgPlaceholder: ''
     },
     'BigQuery': {
-      detail: 'Warehouse telemetry & job logs',
-      connection: 'bigquery://modelops-prod-dataset-2026',
-      auth: 'gcp_service_account_key.json'
+      detailPlaceholder: 'Warehouse telemetry & job logs',
+      connectionPlaceholder: 'bigquery://modelops-prod-dataset',
+      authPlaceholder: 'gcp_service_account_key.json',
+      targetRepoPlaceholder: '',
+      orgPlaceholder: ''
     },
     'OpenRouter AI': {
-      detail: 'LLM resolution engine for RCA & fixes',
-      connection: 'https://openrouter.ai/api/v1/chat/completions',
-      auth: 'sk-or-v1-90862c3a...df'
+      detailPlaceholder: 'LLM resolution engine for RCA & fixes',
+      connectionPlaceholder: 'https://openrouter.ai/api/v1/chat/completions',
+      authPlaceholder: 'sk-or-v1-90862c3a...',
+      targetRepoPlaceholder: '',
+      orgPlaceholder: ''
     },
     'Kafka': {
-      detail: 'Streaming health signals & broker events',
-      connection: 'kafka.prod-cluster.internal:9092',
-      auth: 'SASL_SSL / ScramSHA256'
+      detailPlaceholder: 'Streaming health signals & broker events',
+      connectionPlaceholder: 'kafka.prod-cluster.internal:9092',
+      authPlaceholder: 'SASL_SSL / ScramSHA256',
+      targetRepoPlaceholder: '',
+      orgPlaceholder: ''
     }
   }
 
+  const currentPreset = PRESETS[form.name] || PRESETS['GitHub']
+
   const handleServiceChange = (serviceName) => {
-    const preset = PRESETS[serviceName] || { detail: `${serviceName} connection`, connection: '', auth: '' }
-    setForm({ name: serviceName, ...preset })
+    setForm({
+      name: serviceName,
+      detail: '',
+      connection: '',
+      auth: '',
+      org: '',
+      targetRepo: ''
+    })
     setTestResult(null)
   }
 
@@ -508,39 +535,42 @@ function ConnectIntegrationModal({ onClose, onSave }) {
       setTesting(false)
       setTestResult({
         success: true,
-        latency: '34ms',
+        latency: '24ms',
         ssl: 'TLS v1.3 Verified',
-        message: `Successfully connected to ${form.name} endpoint. Configuration valid!`
+        message: `Successfully authenticated ${form.name} enterprise endpoint. Configuration valid!`
       })
-    }, 1100)
+    }, 1000)
   }
 
-  const field = 'mt-1 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-700 outline-none focus:border-blue-400 font-mono'
+  const field = 'mt-1 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-800 outline-none focus:border-blue-500 font-mono'
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 p-4 backdrop-blur-sm" onClick={event => event.target === event.currentTarget && onClose()}>
       <form onSubmit={event => {
         event.preventDefault()
-        if (form.name === 'GitHub' && form.connection) {
-          const repo = form.connection.replace(/^https?:\/\/github\.com\//, '').replace(/\/$/, '')
-          localStorage.setItem('nexaops_github_repo', repo)
+        const targetRepoClean = form.targetRepo || (form.connection.includes('github.com') ? form.connection.replace(/^https?:\/\/github\.com\//, '').replace(/\/$/, '') : '')
+        if (targetRepoClean) {
+          localStorage.setItem('nexaops_github_repo', targetRepoClean)
         }
         onSave({
           name: form.name,
           type: form.name,
-          detail: form.detail || `${form.name} connection`,
-          connection: form.connection,
-          auth: form.auth
+          detail: form.detail || `${form.name} Integration`,
+          connection: form.connection || `https://github.com/${targetRepoClean}`,
+          auth: form.auth,
+          org: form.org,
+          targetRepo: targetRepoClean,
+          source: form.connection || `https://github.com/${targetRepoClean}`
         })
       }} className="w-full max-w-lg overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl">
         <header className="border-b border-slate-100 px-6 py-4">
-          <h2 className="text-base font-bold text-slate-900">Connect Service & Test Connection String</h2>
-          <p className="mt-0.5 text-xs text-slate-500">Configure connection strings, API tokens, or repository endpoints.</p>
+          <h2 className="text-base font-bold text-slate-900">Connect Service & Enterprise Configuration</h2>
+          <p className="mt-0.5 text-xs text-slate-500">Configure connection strings, API tokens, and target repositories.</p>
         </header>
 
         <div className="space-y-4 p-6">
           <label className="block text-xs font-semibold text-slate-700">
-            Service Presets
+            Service Provider Type
             <select
               value={form.name}
               onChange={e => handleServiceChange(e.target.value)}
@@ -550,23 +580,46 @@ function ConnectIntegrationModal({ onClose, onSave }) {
             </select>
           </label>
 
+          {form.name === 'GitHub' && (
+            <div className="grid grid-cols-2 gap-3">
+              <label className="block text-xs font-semibold text-slate-700">
+                GitHub Account / Org
+                <input
+                  value={form.org}
+                  onChange={e => setForm(v => ({ ...v, org: e.target.value }))}
+                  placeholder={currentPreset.orgPlaceholder}
+                  className={field}
+                />
+              </label>
+              <label className="block text-xs font-semibold text-slate-700">
+                Target Repository
+                <input
+                  value={form.targetRepo}
+                  onChange={e => setForm(v => ({ ...v, targetRepo: e.target.value }))}
+                  placeholder={currentPreset.targetRepoPlaceholder}
+                  className={field}
+                />
+              </label>
+            </div>
+          )}
+
           <label className="block text-xs font-semibold text-slate-700">
-            Connection String / Endpoint <span className="text-red-500">*</span>
+            Connection Endpoint / Server URL <span className="text-red-500">*</span>
             <input
               required
               value={form.connection}
               onChange={event => { setForm(value => ({ ...value, connection: event.target.value })); setTestResult(null) }}
-              placeholder="e.g. postgresql://user:pass@host/db or https://github.com/..."
+              placeholder={currentPreset.connectionPlaceholder}
               className={field}
             />
           </label>
 
           <label className="block text-xs font-semibold text-slate-700">
-            Authentication Key / Token
+            Authentication Key / PAT Token
             <input
               value={form.auth}
               onChange={event => { setForm(value => ({ ...value, auth: event.target.value })); setTestResult(null) }}
-              placeholder="Token, API key, or SSL certificate"
+              placeholder={currentPreset.authPlaceholder}
               className={field}
             />
           </label>
@@ -576,7 +629,7 @@ function ConnectIntegrationModal({ onClose, onSave }) {
             <input
               value={form.detail}
               onChange={event => setForm(value => ({ ...value, detail: event.target.value }))}
-              placeholder="Short description"
+              placeholder={currentPreset.detailPlaceholder}
               className="mt-1 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-700 outline-none focus:border-blue-400"
             />
           </label>
@@ -606,7 +659,7 @@ function ConnectIntegrationModal({ onClose, onSave }) {
           <button
             type="button"
             onClick={runConnectionTest}
-            disabled={testing || !form.connection}
+            disabled={testing || (!form.connection && !form.targetRepo)}
             className="inline-flex items-center gap-2 rounded-lg border border-blue-300 bg-white px-4 py-2 text-xs font-semibold text-blue-600 shadow-sm transition hover:bg-blue-50 disabled:opacity-50"
           >
             {testing ? 'Testing...' : 'Test Connection'}
