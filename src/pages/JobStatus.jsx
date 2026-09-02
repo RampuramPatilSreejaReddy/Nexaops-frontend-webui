@@ -158,8 +158,8 @@ function FullLogsModal({ job, logs, onClose }) {
   }
 
   return (
-    <div className="fixed inset-0 z-[90] grid place-items-center bg-slate-950/80 p-4 backdrop-blur-sm" onClick={e => e.target === e.currentTarget && onClose()}>
-      <div className="flex h-[82vh] w-full max-w-5xl flex-col overflow-hidden rounded-2xl border border-slate-800 bg-[#071421] text-slate-200 shadow-2xl">
+    <div className="fixed inset-0 z-[90] flex items-center justify-center bg-slate-950/80 p-2 backdrop-blur-sm" onClick={e => e.target === e.currentTarget && onClose()}>
+      <div className="flex h-[96vh] w-[98vw] flex-col overflow-hidden rounded-2xl border border-slate-800 bg-[#071421] text-slate-200 shadow-2xl">
         <header className="flex flex-wrap items-center justify-between border-b border-slate-800 px-6 py-4">
           <div className="flex items-center gap-3">
             <div className="grid h-9 w-9 place-items-center rounded-lg border border-slate-700 bg-slate-900 text-blue-400 shadow-inner">
@@ -189,19 +189,19 @@ function FullLogsModal({ job, logs, onClose }) {
             </button>
           </div>
         </header>
-        <main className="flex-1 overflow-auto p-6 font-mono text-xs leading-6">
+        <main className="flex-1 overflow-auto px-4 py-3 font-mono text-[13px] leading-5">
           {filtered.length === 0 ? (
             <div className="py-12 text-center text-slate-500">No log entries match "{search}"</div>
           ) : (
             filtered.map((l, i) => (
-              <div key={i} className="flex gap-4 py-0.5 hover:bg-slate-900/60 rounded px-2">
-                <span className="w-6 select-none text-right text-slate-600">{i + 1}</span>
-                <span className="text-slate-500">{l.ts}</span>
-                <span className="w-16 text-slate-400">[{l.svc}]</span>
-                <span className={`w-14 font-bold ${l.level === 'FATAL' || l.level === 'ERROR' ? 'text-red-400' : l.level === 'WARN' ? 'text-amber-400' : 'text-blue-400'}`}>
+              <div key={i} className="flex gap-5 py-1 hover:bg-white/5 rounded px-2 border-b border-slate-800/40">
+                <span className="w-8 shrink-0 select-none text-right text-slate-600 text-[11px] pt-0.5">{i + 1}</span>
+                <span className="shrink-0 text-slate-500 w-16">{l.ts}</span>
+                <span className="shrink-0 w-16 text-slate-400">[{l.svc}]</span>
+                <span className={`shrink-0 w-14 font-bold ${l.level === 'FATAL' || l.level === 'ERROR' ? 'text-red-400' : l.level === 'WARN' ? 'text-amber-400' : 'text-emerald-400'}`}>
                   {l.level}
                 </span>
-                <span className="flex-1 text-slate-200 whitespace-pre-wrap">{l.msg}</span>
+                <span className="flex-1 text-slate-100 whitespace-pre-wrap break-all">{l.msg}</span>
               </div>
             ))
           )}
