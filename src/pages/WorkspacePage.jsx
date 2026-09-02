@@ -703,15 +703,29 @@ function IntegrationDetail({ item, onClose, onRemove, onEdit }) {
   const [editModalOpen, setEditModalOpen] = useState(false)
   const [syncTime, setSyncTime] = useState(item.age || 'Synced now')
 
-  const connectionString = item.connection || item.source || 'https://github.com/RampuramPatilSreejaReddy/nexaops-test-repo'
-  const authToken = item.auth || 'github_pat_11A_nexaops_test_repo_token'
+  const connectionString = item.connection || item.source || 'https://github.com/acies-sukhesh/nexaops-test-repo1'
+  const authToken = item.auth || (item.name?.includes('GitHub') ? 'github_pat_11A_nexaops_test_repo1_token' : 'Bearer token_active_ssl')
+
+  const repoName = connectionString.includes('github.com')
+    ? connectionString.replace(/^https?:\/\/github\.com\//, '').replace(/\/$/, '')
+    : (item.targetRepo || item.name)
+
+  const [logs, setLogs] = useState([
+    { ts: "02:25:12", msg: `Webhook listener active for repository ${repoName} (branch: main)` },
+    { ts: "02:20:00", msg: `Telemetry handshake verified for ${item.name} (${connectionString})` },
+    { ts: "02:15:20", msg: `Workflow events & health signals synced for ${repoName}` }
+  ])
+
+  const getCurrentTs = () => new Date().toTimeString().split(' ')[0]
 
   const handleTestConnection = () => {
     setActiveAction('testing')
     setActionNotice(null)
     setTimeout(() => {
       setActiveAction(null)
-      setActionNotice({ type: 'success', text: `✓ Connection test passed (28ms latency · TLS v1.3 handshake verified for ${item.name})` })
+      const ts = getCurrentTs()
+      setLogs(prev => [{ ts, msg: `Health check passed (18ms latency · TLS v1.3 handshake verified for ${repoName})` }, ...prev])
+      setActionNotice({ type: 'success', text: `✓ Connection test passed for ${repoName} (18ms latency · TLS v1.3 verified)` })
     }, 1000)
   }
 
@@ -721,7 +735,9 @@ function IntegrationDetail({ item, onClose, onRemove, onEdit }) {
     setTimeout(() => {
       setActiveAction(null)
       setSyncTime('Just now')
-      setActionNotice({ type: 'success', text: `✓ Manual telemetry and workflow event sync completed successfully.` })
+      const ts = getCurrentTs()
+      setLogs(prev => [{ ts, msg: `Manual telemetry & workflow event sync completed for ${repoName}` }, ...prev])
+      setActionNotice({ type: 'success', text: `✓ Manual telemetry and workflow event sync completed for ${repoName}.` })
     }, 1100)
   }
 
@@ -730,16 +746,20 @@ function IntegrationDetail({ item, onClose, onRemove, onEdit }) {
     setActionNotice(null)
     setTimeout(() => {
       setActiveAction(null)
-      setActionNotice({ type: 'success', text: `✓ Successfully re-authenticated credentials & renewed active session token.` })
+      const ts = getCurrentTs()
+      setLogs(prev => [{ ts, msg: `Session key renewed & credentials re-authenticated for ${repoName}` }, ...prev])
+      setActionNotice({ type: 'success', text: `✓ Successfully re-authenticated session key for ${repoName}.` })
     }, 1200)
   }
 
   const handleTogglePause = () => {
     const nextState = !paused
     setPaused(nextState)
+    const ts = getCurrentTs()
+    setLogs(prev => [{ ts, msg: nextState ? `Sync paused by workspace administrator` : `Sync resumed for ${repoName}` }, ...prev])
     setActionNotice({
       type: nextState ? 'amber' : 'success',
-      text: nextState ? '⏸ Integration sync paused by workspace admin.' : '▶ Integration sync resumed successfully.'
+      text: nextState ? `⏸ Integration sync paused for ${repoName}.` : `▶ Integration sync resumed for ${repoName}.`
     })
   }
 
@@ -768,7 +788,7 @@ function IntegrationDetail({ item, onClose, onRemove, onEdit }) {
                   {paused ? 'Paused' : item.tag || 'Healthy'}
                 </span>
               </div>
-              <p className="mt-0.5 text-xs text-slate-500">{item.detail}</p>
+              <p className="mt-0.5 text-xs text-slate-500">{item.detail || `Target: ${repoName}`}</p>
             </div>
           </div>
           <button onClick={onClose} className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-50 transition cursor-pointer">
@@ -788,7 +808,7 @@ function IntegrationDetail({ item, onClose, onRemove, onEdit }) {
             <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
               <header className="flex items-center justify-between border-b border-slate-200 bg-slate-50 px-4 py-3 text-xs font-bold text-slate-700">
                 <span className="flex items-center gap-2"><PlugZap size={15} className="text-blue-600"/> Connection Information</span>
-                <span className="text-[10px] font-semibold text-slate-400">ID: {item.id || '01'}</span>
+                <span className="text-[10px] font-semibold text-slate-400">Target: {repoName}</span>
               </header>
               <div className="space-y-3 p-4">
                 <div>
@@ -838,7 +858,7 @@ function IntegrationDetail({ item, onClose, onRemove, onEdit }) {
                   </div>
                   <div className="rounded-lg border border-slate-100 bg-slate-50 p-2.5">
                     <span className="text-[10px] font-semibold uppercase text-slate-400 block">Latency</span>
-                    <span className="text-xs font-bold font-mono text-slate-800 mt-0.5 block">24ms</span>
+                    <span className="text-xs font-bold font-mono text-slate-800 mt-0.5 block">18ms</span>
                   </div>
                   <div className="rounded-lg border border-slate-100 bg-slate-50 p-2.5">
                     <span className="text-[10px] font-semibold uppercase text-slate-400 block">Events / 24h</span>
@@ -849,13 +869,18 @@ function IntegrationDetail({ item, onClose, onRemove, onEdit }) {
             </section>
 
             <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-              <header className="border-b border-slate-200 bg-slate-50 px-4 py-3 text-xs font-bold text-slate-700 flex items-center gap-2">
-                <FileText size={15} className="text-blue-600"/> Recent Health & Event Stream
+              <header className="border-b border-slate-200 bg-slate-50 px-4 py-3 text-xs font-bold text-slate-700 flex items-center justify-between">
+                <span className="flex items-center gap-2"><FileText size={15} className="text-blue-600"/> Live Health & Event Stream</span>
+                <span className="text-[10px] text-slate-400 font-mono">{logs.length} events logged</span>
               </header>
-              <div className="p-4 space-y-2 font-mono text-xs">
-                <div className="flex items-center gap-2 text-slate-600"><span className="text-emerald-600 font-bold">✓</span> [01:58:12] Webhook listener active for branch main</div>
-                <div className="flex items-center gap-2 text-slate-600"><span className="text-emerald-600 font-bold">✓</span> [01:55:00] Telemetry handshake verified (0 failures)</div>
-                <div className="flex items-center gap-2 text-slate-600"><span className="text-emerald-600 font-bold">✓</span> [01:45:20] Workflow events synced for customer-sync-api</div>
+              <div className="p-4 space-y-2 font-mono text-xs max-h-48 overflow-auto">
+                {logs.map((log, idx) => (
+                  <div key={idx} className="flex items-center gap-2 text-slate-700">
+                    <span className="text-emerald-600 font-bold shrink-0">✓</span>
+                    <span className="text-slate-400 font-semibold shrink-0">[{log.ts}]</span>
+                    <span className="break-all">{log.msg}</span>
+                  </div>
+                ))}
               </div>
             </section>
           </div>
