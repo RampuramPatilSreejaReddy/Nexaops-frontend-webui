@@ -89,21 +89,53 @@ function extractHistId(text) {
   return null
 }
 
-function formatHistCard(histId) {
-  const repo = localStorage.getItem('nexaops_github_repo') || 'acies-sukhesh/nexaops-test-repo1'
-  const job = JOB_DATABASE[histId] || {
+function deriveJobDetails(histId, liveData, rawQuery = '') {
+  if (liveData) {
+    return {
+      id: liveData.id || histId,
+      jobName: liveData.job_name || liveData.name || liveData.jobName || `job-pipeline-${histId.replace(/\D/g, '')}`,
+      aiStatus: liveData.ai_status || liveData.aiStatus || 'AI Fix Ready',
+      startTime: liveData.start_time || liveData.startTime || '27-Aug-2026 02:00 am',
+      endTime: liveData.end_time || liveData.endTime || '27-Aug-2026 02:40 am',
+      status: liveData.status || 'Failed (SLA Breached)',
+      duration: liveData.duration || '40 minutes',
+      cluster: liveData.cluster || 'prod-dataproc-us-east2',
+      symptom: liveData.symptom || 'Data pipeline execution error',
+      rca: liveData.rca || 'Schema or dependency mismatch during workflow execution.',
+      jira: liveData.jira || `JIRA-${histId.replace(/^HIST-0*/, '')}`
+    }
+  }
+
+  if (JOB_DATABASE[histId]) {
+    return JOB_DATABASE[histId]
+  }
+
+  // Parse potential job name from user query (e.g. "HIST-000120 risk-batch")
+  const words = rawQuery.replace(/HIST-[A-Z0-9-]+/gi, '').replace(/tell me|about|this|that|job|details|get|the/gi, '').trim().split(/\s+/)
+  const queryName = words.find(w => w.length > 2)
+
+  const numStr = histId.replace(/\D/g, '')
+  const jobName = queryName ? queryName.toLowerCase() : (numStr ? `workflow-pipeline-${numStr}` : 'data-sync-worker')
+  const jira = `JIRA-${numStr || '1023'}`
+
+  return {
     id: histId,
-    jobName: 'customer-sync-api',
+    jobName: jobName,
     aiStatus: 'AI Fix Ready',
     startTime: '27-Aug-2026 02:00 am',
     endTime: '27-Aug-2026 02:40 am',
     status: 'Failed (SLA Breached)',
     duration: '40 minutes',
     cluster: 'prod-dataproc-us-east2',
-    symptom: 'Data pipeline execution error',
-    rca: 'Schema or dependency mismatch during workflow execution.',
-    jira: 'JIRA-1023'
+    symptom: `Execution failure in ${jobName} pipeline`,
+    rca: `Telemetry isolated runtime failure for ${jobName}. Automated remediation generated.`,
+    jira: jira
   }
+}
+
+function formatHistCard(histId, liveData = null, rawQuery = '') {
+  const repo = localStorage.getItem('nexaops_github_repo') || 'acies-sukhesh/nexaops-test-repo1'
+  const job = deriveJobDetails(histId, liveData, rawQuery)
 
   return (
     `⚙️ **Job History Details (${job.id})**\n\n` +
@@ -164,20 +196,20 @@ export default function Chatbot({ open, setOpen }) {
 
     try {
       if (histId) {
-        lastContextRef.current = { type: 'job', id: histId, name: 'customer-sync-api' }
+        lastContextRef.current = { type: 'job', id: histId }
         try {
           const { data } = await getJob(histId)
           if (data) {
-            setMessages(m => [...m, { role: 'assistant', text: formatHistCard(histId) }])
+            setMessages(m => [...m, { role: 'assistant', text: formatHistCard(histId, data, msg) }])
           } else {
             throw new Error('Fallback to local registry')
           }
         } catch {
-          setMessages(m => [...m, { role: 'assistant', text: formatHistCard(histId) }])
+          setMessages(m => [...m, { role: 'assistant', text: formatHistCard(histId, null, msg) }])
         }
       } else if (isContextualJobQuery) {
         const targetHistId = lastContextRef.current.id || 'HIST-000152'
-        setMessages(m => [...m, { role: 'assistant', text: formatHistCard(targetHistId) }])
+        setMessages(m => [...m, { role: 'assistant', text: formatHistCard(targetHistId, null, msg) }])
       } else if (jiraId || lowerMsg.includes('jira') || lowerMsg.includes('ticket')) {
         const targetId = jiraId || 'JIRA-1023'
         lastContextRef.current = { type: 'jira', id: targetId }
