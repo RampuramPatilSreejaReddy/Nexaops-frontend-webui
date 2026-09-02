@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react'
+import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom'
 import TopNav from './components/TopNav.jsx'
 import Sidebar from './components/Sidebar.jsx'
 import JobStatus from './pages/JobStatus.jsx'
@@ -7,6 +8,9 @@ import WorkspacePage from './pages/WorkspacePage.jsx'
 import LoginPage from './pages/LoginPage.jsx'
 
 export default function App() {
+  const navigate = useNavigate()
+  const location = useLocation()
+
   const [theme, setTheme] = useState(
     () => localStorage.getItem('nexaops_theme') === 'dark' ? 'dark' : 'light'
   )
@@ -19,9 +23,7 @@ export default function App() {
       return null 
     }
   })
-  const [activePage, setActivePage] = useState('jobs')
-  const [pendingJobName, setPendingJobName] = useState(null)
-  const [jobOriginPage, setJobOriginPage] = useState('jobs')
+
   const [approvedJobNames, setApprovedJobNames] = useState({})
   const resolutionCacheRef = useRef({})
   const [sidebarCollapsed, setSidebarCollapsed] = useState(
@@ -37,17 +39,14 @@ export default function App() {
     document.documentElement.classList.toggle('dark', theme === 'dark')
   }, [theme])
 
-  const openJobFromIncident = (jobName, fromPage = 'incidents') => {
-    setPendingJobName(jobName)
-    setJobOriginPage(fromPage)
-    setActivePage('jobs')
+  // Determine active sidebar key from current route
+  const getActiveKey = () => {
+    const path = location.pathname.split('/')[1] || 'jobs'
+    return path
   }
 
-  const handleReturnFromJob = () => {
-    setPendingJobName(null)
-    if (jobOriginPage && jobOriginPage !== 'jobs') {
-      setActivePage(jobOriginPage)
-    }
+  const handleNavigate = (pageKey) => {
+    navigate(`/${pageKey}`)
   }
 
   const markJobApproved = (jobName) => {
@@ -58,73 +57,164 @@ export default function App() {
     localStorage.removeItem('nexaops_token')
     localStorage.removeItem('nexaops_user')
     setUser(null)
+    navigate('/login')
   }
 
-  // Require login: show full Login Page if unauthenticated
-  if (!user) {
-    return <LoginPage onSuccess={(u) => setUser(u)} />
+  // Unauthenticated protection
+  if (!user && location.pathname !== '/login') {
+    return <Navigate to="/login" replace />
   }
 
   return (
-    <div
-      className={`app-theme ${theme === 'dark' ? 'dark' : ''}`}
-      style={{
-        display: 'flex',
-        flexDirection: 'column',
-        height: '100vh',
-        overflow: 'hidden',
-        borderTop: '3px solid #2563EB',
-      }}
-    >
-      <TopNav
-        user={user}
-        onSignOut={handleSignOut}
-        theme={theme}
-        onToggleTheme={() => setTheme(v => v === 'dark' ? 'light' : 'dark')}
+    <Routes>
+      <Route
+        path="/login"
+        element={
+          user ? (
+            <Navigate to="/jobs" replace />
+          ) : (
+            <LoginPage
+              onSuccess={(u) => {
+                setUser(u)
+                navigate('/jobs')
+              }}
+            />
+          )
+        }
       />
 
-      <div style={{ display: 'flex', flex: 1, minHeight: 0, overflow: 'hidden' }}>
-        <Sidebar
-          activePage={activePage}
-          onNavigate={setActivePage}
-          collapsed={sidebarCollapsed}
-          onToggleCollapse={() => setSidebarCollapsed(v => !v)}
-          theme={theme}
-          onToggleTheme={() => setTheme(v => v === 'dark' ? 'light' : 'dark')}
-        />
+      {/* Main Workspace Layout */}
+      <Route
+        path="/*"
+        element={
+          <div
+            className={`app-theme ${theme === 'dark' ? 'dark' : ''}`}
+            style={{
+              display: 'flex',
+              flexDirection: 'column',
+              height: '100vh',
+              overflow: 'hidden',
+              borderTop: '3px solid #2563EB',
+            }}
+          >
+            <TopNav
+              user={user}
+              onSignOut={handleSignOut}
+              theme={theme}
+              onToggleTheme={() => setTheme(v => v === 'dark' ? 'light' : 'dark')}
+              onNavigate={handleNavigate}
+            />
 
-        <main
-          style={{
-            flex: 1,
-            minHeight: 0,
-            overflowY: 'auto',
-            overflowX: 'hidden',
-            background: '#F4F6FA',
-            display: 'flex',
-            flexDirection: 'column',
-          }}
-        >
-          {activePage === 'jobs' && (
-            <JobStatus
-              initialJobName={pendingJobName}
-              originPage={jobOriginPage}
-              onConsumeInitialJob={() => setPendingJobName(null)}
-              onReturnToOrigin={handleReturnFromJob}
-              onNavigate={setActivePage}
-              onApprove={markJobApproved}
-              resolutionCache={resolutionCacheRef}
-            />
-          )}
-          {activePage === 'dashboard' && <Dashboard />}
-          {['incidents', 'integrations', 'brain', 'runbooks', 'settings'].includes(activePage) && (
-            <WorkspacePage
-              pageKey={activePage}
-              onOpenJob={openJobFromIncident}
-              approvedJobNames={approvedJobNames}
-            />
-          )}
-        </main>
-      </div>
-    </div>
+            <div style={{ display: 'flex', flex: 1, minHeight: 0, overflow: 'hidden' }}>
+              <Sidebar
+                activePage={getActiveKey()}
+                onNavigate={handleNavigate}
+                collapsed={sidebarCollapsed}
+                onToggleCollapse={() => setSidebarCollapsed(v => !v)}
+                theme={theme}
+                onToggleTheme={() => setTheme(v => v === 'dark' ? 'light' : 'dark')}
+              />
+
+              <main
+                style={{
+                  flex: 1,
+                  minHeight: 0,
+                  overflowY: 'auto',
+                  overflowX: 'hidden',
+                  background: '#F4F6FA',
+                  display: 'flex',
+                  flexDirection: 'column',
+                }}
+              >
+                <Routes>
+                  <Route path="/" element={<Navigate to="/jobs" replace />} />
+                  <Route
+                    path="/jobs"
+                    element={
+                      <JobStatus
+                        originPage="jobs"
+                        onNavigate={handleNavigate}
+                        onApprove={markJobApproved}
+                        resolutionCache={resolutionCacheRef}
+                      />
+                    }
+                  />
+                  <Route
+                    path="/jobs/:jobId"
+                    element={
+                      <JobStatus
+                        originPage="jobs"
+                        onNavigate={handleNavigate}
+                        onApprove={markJobApproved}
+                        resolutionCache={resolutionCacheRef}
+                      />
+                    }
+                  />
+                  <Route
+                    path="/incidents"
+                    element={
+                      <WorkspacePage
+                        pageKey="incidents"
+                        onOpenJob={(jobName) => navigate(`/incidents/${encodeURIComponent(jobName)}`)}
+                        approvedJobNames={approvedJobNames}
+                      />
+                    }
+                  />
+                  <Route
+                    path="/incidents/:jobId"
+                    element={
+                      <JobStatus
+                        originPage="incidents"
+                        onNavigate={handleNavigate}
+                        onApprove={markJobApproved}
+                        resolutionCache={resolutionCacheRef}
+                      />
+                    }
+                  />
+                  <Route path="/dashboard" element={<Dashboard />} />
+                  <Route
+                    path="/integrations"
+                    element={
+                      <WorkspacePage
+                        pageKey="integrations"
+                        approvedJobNames={approvedJobNames}
+                      />
+                    }
+                  />
+                  <Route
+                    path="/brain"
+                    element={
+                      <WorkspacePage
+                        pageKey="brain"
+                        approvedJobNames={approvedJobNames}
+                      />
+                    }
+                  />
+                  <Route
+                    path="/runbooks"
+                    element={
+                      <WorkspacePage
+                        pageKey="runbooks"
+                        approvedJobNames={approvedJobNames}
+                      />
+                    }
+                  />
+                  <Route
+                    path="/settings"
+                    element={
+                      <WorkspacePage
+                        pageKey="settings"
+                        approvedJobNames={approvedJobNames}
+                      />
+                    }
+                  />
+                  <Route path="*" element={<Navigate to="/jobs" replace />} />
+                </Routes>
+              </main>
+            </div>
+          </div>
+        }
+      />
+    </Routes>
   )
 }
