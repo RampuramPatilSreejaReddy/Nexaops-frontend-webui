@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { createRoot } from 'react-dom/client'
 import { useParams, useNavigate } from 'react-router-dom'
-import { AlertCircle, ArrowLeft, Calendar, CheckCircle2, ChevronDown, ChevronRight, CirclePlay, Code2, Database, Download, Edit3, FileText, Github, GitPullRequest, Mail, MapPin, Maximize2, Radio, RefreshCw, Search, SlidersHorizontal, Sparkles, Users, Wrench, X, Zap } from 'lucide-react'
+import { AlertCircle, ArrowLeft, Calendar, CheckCircle2, ChevronDown, ChevronRight, CirclePlay, Code2, Database, Download, Edit3, FileText, Github, GitPullRequest, Mail, MapPin, Maximize2, Radio, RefreshCw, Search, SlidersHorizontal, Sparkles, Terminal, Users, Wrench, X, Zap } from 'lucide-react'
 import { getJobChildren, getJobs, getResolution, getJobSummary, sendApprovalEmail } from '../api/jobs.js'
 import Chatbot from '../components/Chatbot.jsx'
 import SlaBreachDetail from '../components/SlaBreachDetail.jsx'
@@ -41,7 +41,7 @@ df.show(5)
   const sparkDefaultRootCause = "Missing OCI Jersey client library (com.oracle.bmc.http.client.jersey.JerseyClientProperty) during Hadoop FileSystem initialization. This triggered 9 cascading failure signals across Spark driver, Guava execution handlers, and Py4J gateway."
   const sparkDefaultResolution = "Add required 'extraClassPath' JAR dependencies (jersey-client-2.34.jar & oci-java-sdk-full-3.40.2.jar) and 'oci-java-sdk-common-httpclient-jersey' package to the SparkSession builder."
 
-  const [view,setView] = useState(null), [aiCode,setAiCode] = useState(isSparkDemo ? sparkDefaultAiCode : generatedCode), [approvalMethod,setApprovalMethod] = useState('github'), [sent,setSentState] = useState(false), [pullRequestOpened,setPullRequestOpened] = useState(false), [emailModal,setEmailModal] = useState(false), [platformReview,setPlatformReview] = useState(false), [githubModal,setGithubModal] = useState(false), [resolution,setResolution] = useState(null), [resolutionLoading,setResolutionLoading] = useState(true)
+  const [view,setView] = useState(null), [aiCode,setAiCode] = useState(isSparkDemo ? sparkDefaultAiCode : generatedCode), [approvalMethod,setApprovalMethod] = useState('github'), [sent,setSentState] = useState(false), [pullRequestOpened,setPullRequestOpened] = useState(false), [emailModal,setEmailModal] = useState(false), [platformReview,setPlatformReview] = useState(false), [githubModal,setGithubModal] = useState(false), [resolution,setResolution] = useState(null), [resolutionLoading,setResolutionLoading] = useState(true), [fullLogsModal,setFullLogsModal] = useState(false)
   const setSent = (value) => { if (value) onApprove?.(job.name); if (value && approvalMethod === 'github') { setGithubModal(true); return } if (value && approvalMethod === 'email') { setEmailModal(true); return } if (value && approvalMethod === 'platform') { setPlatformReview(true); return } setSentState(value) }
   useEffect(() => {
     if (!emailModal) return undefined
@@ -58,39 +58,40 @@ df.show(5)
     const root = createRoot(mount)
     root.render(<InteractiveInPlatformComparison job={job} initialAiCode={aiCode} productionCode={resolution?.code_snippet || (isSparkDemo ? sparkDefaultProdCode : '')} onClose={() => setPlatformReview(false)}/>)
     return () => { root.unmount(); mount.remove() }
-  }, [platformReview,job,aiCode,resolution])
+  }, [platformReview,job,aiCode,resolution,isSparkDemo,sparkDefaultProdCode])
   useEffect(() => {
     if (!githubModal) return undefined
     const mount = document.createElement('div')
     document.body.appendChild(mount)
     const root = createRoot(mount)
-    root.render(<GitHubPullRequestModal onClose={() => setGithubModal(false)}/>)
+    root.render(<GitHubPullRequestModal crData={job?.crData} onClose={() => setGithubModal(false)}/>)
     return () => { root.unmount(); mount.remove() }
-  }, [githubModal])
-  const fetchResolution = (force = false) => {
-    if (!force && cache?.current && cache.current[job.id]) {
-      const cached = cache.current[job.id]
-      setResolution(cached)
-      if (cached?.code_fix) setAiCode(cached.code_fix)
-      setResolutionLoading(false)
-      return
-    }
+  }, [githubModal,job])
+
+  const fetchResolution = async (force = false) => {
+    if (!job?.id) return
     setResolutionLoading(true)
-    getResolution(job.id, force).then(({ data }) => {
-      if (cache?.current) cache.current[job.id] = data
-      setResolution(data)
-      if (data?.code_fix) setAiCode(data.code_fix)
-    }).catch(() => setResolution(null))
-      .finally(() => setResolutionLoading(false))
+    try {
+      const res = await getResolution(job.id, force)
+      if (res.data) {
+        setResolution(res.data)
+        if (res.data.code_fix) setAiCode(res.data.code_fix)
+      }
+    } catch {
+      // keep fallback static demo values if backend resolution API call fails
+    } finally {
+      setResolutionLoading(false)
+    }
   }
-  useEffect(() => { fetchResolution(false) }, [job.id])
-  const download = () => { const blob = new Blob([aiCode], { type: 'text/sql' }); const link = document.createElement('a'); link.href = URL.createObjectURL(blob); link.download = 'column_determination.py'; link.click(); URL.revokeObjectURL(link.href) }
-  const startedAt = formatTimestamp(job.startTimestamp)
-  const methods = [
-    ['github', Github, 'GitHub Pull Request (Recommended)', 'Review and approve changes in GitHub.'],
-    ['platform', Code2, 'In-Platform Code Review', 'Review and approve within NexaOps.'],
-    ['email', Mail, 'Email with Attachments', 'Send code diff via email for approval.'],
-  ]
+
+  useEffect(() => {
+    fetchResolution(false)
+  }, [job?.id])
+
+  const startedAt = useMemo(() => {
+    if (job.start) return job.start
+    return '08:14:00'
+  }, [job.start])
 
   const originLabel = originPage === 'incidents' ? 'Incidents' : 'Jobs'
   const handleGoBack = () => {
@@ -100,11 +101,99 @@ df.show(5)
 
   const effectiveProdCode = resolution?.code_snippet || (isSparkDemo ? sparkDefaultProdCode : '')
 
-  return <><aside className="fixed inset-0 z-40 overflow-auto bg-[#f6f8fc] text-slate-700"><div className="mx-auto min-h-full max-w-[1440px] px-5 py-5 lg:px-8"><header className="mb-5 flex flex-wrap items-start justify-between gap-4"><div><div className="mb-2 flex items-center gap-1.5 text-[11px] font-medium text-slate-400"><button onClick={handleGoBack} className="font-semibold text-slate-500 hover:text-blue-600 transition-colors cursor-pointer">{originLabel}</button><span className="mx-1">›</span><button onClick={handleGoBack} className="hover:text-blue-600 transition-colors cursor-pointer text-slate-500">{originPage === 'incidents' ? 'Active Incidents' : 'Failed Jobs'}</button><span className="mx-1">›</span><span className="font-semibold text-slate-700">{job.name}</span></div><div className="flex flex-wrap items-center gap-2"><h2 className="text-2xl font-bold tracking-tight text-slate-900">{job.name}</h2><span className="rounded-md border border-red-200 bg-red-50 px-2 py-1 text-[10px] font-bold text-red-600">FAILED · P1</span>{job.status === 'failed' && job.sla_breach && (<span className="rounded-md border border-amber-300 bg-amber-50 px-2 py-1 text-[10px] font-bold text-amber-700">SLA BREACHED</span>)}<span className="rounded-md bg-slate-200 px-2 py-1 text-[10px] font-semibold text-slate-600">{job.workflow}</span></div>{job.parentName && <p className="mt-1 text-[11px] text-slate-400">Part of pipeline: <span className="font-semibold text-slate-600">{job.parentName}</span></p>}<div className="mt-2 flex flex-wrap gap-x-6 gap-y-1 text-[11px] text-slate-500"><span>Run ID: 784512</span><span>Environment: Production</span><span>Started: {startedAt}</span></div></div><div className="flex items-center gap-4"><span className="text-[10px] text-slate-400 font-mono">Incident ID: {(job.id === 'SPARK-LIVE-001' || job.name === 'spark-driver-failure') ? 'INC-2026-SPARK-01' : (job.incident_id || `INC-${job.id?.slice(0, 8)}`)}</span><button onClick={handleGoBack} className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3.5 py-2 text-xs font-semibold text-slate-700 shadow-sm transition hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700 cursor-pointer"><ArrowLeft size={14}/>Back to {originLabel}</button></div></header><div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_270px]"><main className="space-y-4"><section className="overflow-hidden rounded-xl border border-slate-800 bg-[#071421] shadow-sm"><header className="flex items-center justify-between px-4 pt-3"><b className="text-[10px] uppercase tracking-wide text-slate-300">Error Logs</b><button className="rounded-md border border-slate-600 px-2 py-1 text-[10px] font-semibold text-slate-200 hover:bg-slate-800">View Full Logs</button></header><pre className="overflow-auto px-4 pb-4 pt-2 font-mono text-[10px] leading-5 text-slate-200">{(resolution?.log || []).map((l,i) => <React.Fragment key={i}>{l.ts}  [{l.svc}] <span className={l.level === 'ERROR' || l.level === 'FATAL' ? 'text-red-400' : ''}>{l.level}</span> {l.msg}{'\n'}</React.Fragment>)}</pre></section><section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm"><header className="flex items-center justify-between"><b className="text-[11px] font-bold uppercase tracking-wide text-slate-700">AI Resolution Workflow</b><div className="flex items-center gap-2"><span className="rounded bg-emerald-50 px-2 py-1 text-[10px] font-bold text-emerald-600">{resolution?.rca?.confidence != null ? `${resolution.rca.confidence}% Confidence` : (isSparkDemo ? '96% Confidence' : '—')}</span><button onClick={() => fetchResolution(true)} disabled={resolutionLoading} title="Re-run AI analysis" className="inline-flex items-center gap-1 rounded border border-slate-200 px-2 py-1 text-[10px] font-semibold text-slate-600 hover:bg-slate-50 disabled:opacity-50"><RefreshCw size={11} className={resolutionLoading ? 'animate-spin' : ''}/>Reload</button></div></header><div className="mt-3 grid gap-4 border-t border-slate-100 pt-3 sm:grid-cols-2"><Info label="Root cause" text={resolution?.rca?.root_cause || (isSparkDemo ? sparkDefaultRootCause : (resolutionLoading ? 'Analyzing log trace…' : 'No AI analysis available.'))}/><Info label="AI recommendation" text={resolution?.rca?.resolution || (isSparkDemo ? sparkDefaultResolution : '')}/></div></section><CodeComparison aiCode={aiCode} productionCode={effectiveProdCode} onCompare={() => setView('compare')} onEdit={() => setView('edit')}/><section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm"><header className="flex items-center gap-2"><Github size={17} className="text-slate-700"/><div><b className="text-[11px] font-bold uppercase tracking-wide text-slate-700">Git Repository Integration</b><p className="mt-0.5 text-[10px] text-slate-400">Pull request ready for review</p></div></header><div className="mt-4 grid gap-4 border-y border-slate-100 py-4 sm:grid-cols-3"><GitDetail label="Repository" value="nexaops-data-pipelines" link/><GitDetail label="Base branch" value="main"/><GitDetail label="Compare branch" value="feature/CR-1023-ai-fix"/><GitDetail label="Pull request" value="#42" link/><GitDetail label="Commit (latest)" value="9de4f21" link/><GitDetail label="Files changed" value="1 file"/></div><GitProgress/><div className="mt-4 flex flex-wrap items-center justify-between gap-3"><span className="text-[10px] text-slate-500">Created 29-Jul-2026 03:45 PM</span><button onClick={() => setPullRequestOpened(true)} className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-3.5 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-blue-700"><GitPullRequest size={14}/>{pullRequestOpened ? 'Pull Request Opened' : 'Open Pull Request'}</button></div></section><section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm"><header><b className="text-[11px] font-bold uppercase tracking-wide text-slate-700">Approval Method</b><p className="mt-1 text-[11px] text-slate-500">Select how you want to review and approve the AI-generated fix.</p></header><div className="mt-4 grid gap-3 md:grid-cols-3">{methods.map(([key,Icon,label,description]) => <label key={key} className={`cursor-pointer rounded-lg border p-3 transition ${approvalMethod === key ? 'border-blue-400 bg-blue-50/60 ring-1 ring-blue-100' : 'border-slate-200 hover:border-slate-300'}`}><input className="sr-only" type="radio" name="approval-method" checked={approvalMethod === key} onChange={() => setApprovalMethod(key)}/><span className="flex items-start gap-2"><span className={`mt-0.5 grid h-4 w-4 place-items-center rounded-full border ${approvalMethod === key ? 'border-blue-600' : 'border-slate-300'}`}>{approvalMethod === key && <span className="h-2 w-2 rounded-full bg-blue-600"/>}</span><Icon size={16} className={approvalMethod === key ? 'text-blue-600' : 'text-slate-500'}/><span><b className="block text-[11px] text-slate-700">{label}</b><span className="mt-1 block text-[10px] leading-4 text-slate-500">{description}</span></span></span></label>)}</div><div className="mt-4 flex items-center justify-end gap-2 border-t border-slate-100 pt-3"><Action label={sent ? 'Approval Started' : 'Approve & Start CR'} icon={CheckCircle2} onClick={() => setSent(true)}/><button onClick={() => setSent(true)} className="rounded-lg bg-blue-600 px-5 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-blue-700">Continue</button></div>{sent && <p className="mt-3 rounded-md bg-emerald-50 px-3 py-2 text-[11px] font-medium text-emerald-700">{approvalMethod === 'github' ? 'GitHub pull request workflow selected.' : approvalMethod === 'platform' ? 'In-platform review workflow selected.' : 'Email approval workflow selected.'}</p>}</section></main><aside className="h-fit overflow-hidden rounded-xl border border-slate-200 bg-white text-[11px] shadow-sm"><div className="p-4"><Summary title="Job Summary" rows={[["Start Time",startedAt],["Duration",job.runtime || '38m 24s']]}/><Summary title="Business Impact" rows={[["Impacted", (resolution?.rca?.impacted || ["spark-driver-failure", "Spark Cluster Orchestration", "Oracle Cloud HDFS Storage"]).join(', ')],["Business Impact", resolution?.rca?.business_impact || "Data Engineering pipeline stalled. Downstream ETL jobs blocked until OCI dependency is resolved."]]}/><Summary title="AI Usage" rows={[
+  return <><aside className="fixed inset-0 z-40 overflow-auto bg-[#f6f8fc] text-slate-700"><div className="mx-auto min-h-full max-w-[1440px] px-5 py-5 lg:px-8"><header className="mb-5 flex flex-wrap items-start justify-between gap-4"><div><div className="mb-2 flex items-center gap-1.5 text-[11px] font-medium text-slate-400"><button onClick={handleGoBack} className="font-semibold text-slate-500 hover:text-blue-600 transition-colors cursor-pointer">{originLabel}</button><span className="mx-1">›</span><button onClick={handleGoBack} className="hover:text-blue-600 transition-colors cursor-pointer text-slate-500">{originPage === 'incidents' ? 'Active Incidents' : 'Failed Jobs'}</button><span className="mx-1">›</span><span className="font-semibold text-slate-700">{job.name}</span></div><div className="flex flex-wrap items-center gap-2"><h2 className="text-2xl font-bold tracking-tight text-slate-900">{job.name}</h2><span className="rounded-md border border-red-200 bg-red-50 px-2 py-1 text-[10px] font-bold text-red-600">FAILED · P1</span>{job.status === 'failed' && job.sla_breach && (<span className="rounded-md border border-amber-300 bg-amber-50 px-2 py-1 text-[10px] font-bold text-amber-700">SLA BREACHED</span>)}<span className="rounded-md bg-slate-200 px-2 py-1 text-[10px] font-semibold text-slate-600">{job.workflow}</span></div>{job.parentName && <p className="mt-1 text-[11px] text-slate-400">Part of pipeline: <span className="font-semibold text-slate-600">{job.parentName}</span></p>}<div className="mt-2 flex flex-wrap gap-x-6 gap-y-1 text-[11px] text-slate-500"><span>Run ID: 784512</span><span>Environment: Production</span><span>Started: {startedAt}</span></div></div><div className="flex items-center gap-4"><span className="text-[10px] text-slate-400 font-mono">Incident ID: {(job.id === 'SPARK-LIVE-001' || job.name === 'spark-driver-failure') ? 'INC-2026-SPARK-01' : (job.incident_id || `INC-${job.id?.slice(0, 8)}`)}</span><button onClick={handleGoBack} className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3.5 py-2 text-xs font-semibold text-slate-700 shadow-sm transition hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700 cursor-pointer"><ArrowLeft size={14}/>Back to {originLabel}</button></div></header><div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_270px]"><main className="space-y-4"><section className="overflow-hidden rounded-xl border border-slate-800 bg-[#071421] shadow-sm"><header className="flex items-center justify-between px-4 pt-3"><b className="text-[10px] uppercase tracking-wide text-slate-300">Error Logs</b><button onClick={() => setFullLogsModal(true)} className="rounded-md border border-slate-600 px-2 py-1 text-[10px] font-semibold text-slate-200 hover:bg-slate-800 transition cursor-pointer">View Full Logs</button></header><pre className="overflow-auto px-4 pb-4 pt-2 font-mono text-[10px] leading-5 text-slate-200">{(resolution?.log || []).map((l,i) => <React.Fragment key={i}>{l.ts}  [{l.svc}] <span className={l.level === 'ERROR' || l.level === 'FATAL' ? 'text-red-400' : ''}>{l.level}</span> {l.msg}{'\n'}</React.Fragment>)}</pre></section><section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm"><header className="flex items-center justify-between"><b className="text-[11px] font-bold uppercase tracking-wide text-slate-700">AI Resolution Workflow</b><div className="flex items-center gap-2"><span className="rounded bg-emerald-50 px-2 py-1 text-[10px] font-bold text-emerald-600">{resolution?.rca?.confidence != null ? `${resolution.rca.confidence}% Confidence` : (isSparkDemo ? '96% Confidence' : '—')}</span><button onClick={() => fetchResolution(true)} disabled={resolutionLoading} title="Re-run AI analysis" className="inline-flex items-center gap-1 rounded border border-slate-200 px-2 py-1 text-[10px] font-semibold text-slate-600 hover:bg-slate-50 disabled:opacity-50"><RefreshCw size={11} className={resolutionLoading ? 'animate-spin' : ''}/>Reload</button></div></header><div className="mt-3 grid gap-4 border-t border-slate-100 pt-3 sm:grid-cols-2"><Info label="Root cause" text={resolution?.rca?.root_cause || (isSparkDemo ? sparkDefaultRootCause : (resolutionLoading ? 'Analyzing log trace…' : 'No AI analysis available.'))}/><Info label="AI recommendation" text={resolution?.rca?.resolution || (isSparkDemo ? sparkDefaultResolution : '')}/></div></section><CodeComparison aiCode={aiCode} productionCode={effectiveProdCode} onCompare={() => setView('compare')} onEdit={() => setView('edit')}/><section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm"><header className="flex items-center gap-2"><Github size={17} className="text-slate-700"/><div><b className="text-[11px] font-bold uppercase tracking-wide text-slate-700">Git Repository Integration</b><p className="mt-0.5 text-[10px] text-slate-400">Pull request ready for review</p></div></header><div className="mt-4 grid gap-4 border-y border-slate-100 py-4 sm:grid-cols-3"><GitDetail label="Repository" value="nexaops-data-pipelines" link/><GitDetail label="Base branch" value="main"/><GitDetail label="Compare branch" value="feature/CR-1023-ai-fix"/><GitDetail label="Pull request" value="#42" link/><GitDetail label="Commit (latest)" value="9de4f21" link/><GitDetail label="Files changed" value="1 file"/></div><GitProgress/><div className="mt-4 flex flex-wrap items-center justify-between gap-3"><span className="text-[10px] text-slate-500">Created 29-Jul-2026 03:45 PM</span><button onClick={() => setPullRequestOpened(true)} className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-3.5 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-blue-700"><GitPullRequest size={14}/>{pullRequestOpened ? 'Pull Request Opened' : 'Open Pull Request'}</button></div></section><section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm"><header><b className="text-[11px] font-bold uppercase tracking-wide text-slate-700">Approval Method</b><p className="mt-1 text-[11px] text-slate-500">Select how you want to review and approve the AI-generated fix.</p></header><div className="mt-4 grid gap-3 md:grid-cols-3">{methods.map(([key,Icon,label,description]) => <label key={key} className={`cursor-pointer rounded-lg border p-3 transition ${approvalMethod === key ? 'border-blue-400 bg-blue-50/60 ring-1 ring-blue-100' : 'border-slate-200 hover:border-slate-300'}`}><input className="sr-only" type="radio" name="approval-method" checked={approvalMethod === key} onChange={() => setApprovalMethod(key)}/><span className="flex items-start gap-2"><span className={`mt-0.5 grid h-4 w-4 place-items-center rounded-full border ${approvalMethod === key ? 'border-blue-600' : 'border-slate-300'}`}>{approvalMethod === key && <span className="h-2 w-2 rounded-full bg-blue-600"/>}</span><Icon size={16} className={approvalMethod === key ? 'text-blue-600' : 'text-slate-500'}/><span><b className="block text-[11px] text-slate-700">{label}</b><span className="mt-1 block text-[10px] leading-4 text-slate-500">{description}</span></span></span></label>)}</div><div className="mt-4 flex items-center justify-end gap-2 border-t border-slate-100 pt-3"><Action label={sent ? 'Approval Started' : 'Approve & Start CR'} icon={CheckCircle2} onClick={() => setSent(true)}/><button onClick={() => setSent(true)} className="rounded-lg bg-blue-600 px-5 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-blue-700">Continue</button></div>{sent && <p className="mt-3 rounded-md bg-emerald-50 px-3 py-2 text-[11px] font-medium text-emerald-700">{approvalMethod === 'github' ? 'GitHub pull request workflow selected.' : approvalMethod === 'platform' ? 'In-platform review workflow selected.' : 'Email approval workflow selected.'}</p>}</section></main><aside className="h-fit overflow-hidden rounded-xl border border-slate-200 bg-white text-[11px] shadow-sm"><div className="p-4"><Summary title="Job Summary" rows={[["Start Time",startedAt],["Duration",job.runtime || '38m 24s']]}/><Summary title="Business Impact" rows={[["Impacted", (resolution?.rca?.impacted || ["spark-driver-failure", "Spark Cluster Orchestration", "Oracle Cloud HDFS Storage"]).join(', ')],["Business Impact", resolution?.rca?.business_impact || "Data Engineering pipeline stalled. Downstream ETL jobs blocked until OCI dependency is resolved."]]}/><Summary title="AI Usage" rows={[
   ["Model", resolution?.model || 'openrouter/minimax-m2.7'],
   ["Tokens (in / out)", resolution?.tokens_used ? (typeof resolution.tokens_used === 'object' ? `${resolution.tokens_used.input_tokens || 0} / ${resolution.tokens_used.output_tokens || 0}` : resolution.tokens_used) : '540 / 185'],
   ["Est. cost", resolution?.estimated_cost_usd != null ? `$${Number(resolution.estimated_cost_usd).toFixed(6)}` : '$0.000165'],
-]}/><section className="border-b border-slate-100 py-4"><b className="text-[10px] uppercase text-slate-600">Next Steps (After Approval)</b><ul className="mt-3 space-y-2 text-slate-500"><li>Change Request (CR) will be created</li><li>Code will be committed / merged</li><li>Pipeline will be deployed</li><li>Monitoring will resume</li></ul></section><section className="pt-4"><b className="text-[10px] uppercase text-slate-600">Access Control</b><div className="mt-3 space-y-2 text-slate-500"><div className="flex justify-between"><span>Owner</span><b className="text-slate-700">data-eng-team</b></div><div className="flex justify-between"><span>You</span><b className="text-blue-600">View Only</b></div><p className="pt-2 text-[10px] leading-4">Only the owner and authorized members can edit code and raise CR.</p></div></section></div></aside></div></div></aside>{view === 'compare' && <FullScreenComparison aiCode={aiCode} productionCode={effectiveProdCode} onBack={() => setView(null)} onEdit={() => setView('edit')} onDownload={download}/>} {view === 'edit' && <FullScreenEditor aiCode={aiCode} onChange={setAiCode} onBack={() => setView('compare')} onClose={() => setView(null)} onDownload={download}/>}</>
+]}/><section className="border-b border-slate-100 py-4"><b className="text-[10px] uppercase text-slate-600">Next Steps (After Approval)</b><ul className="mt-3 space-y-2 text-slate-500"><li>Change Request (CR) will be created</li><li>Code will be committed / merged</li><li>Pipeline will be deployed</li><li>Monitoring will resume</li></ul></section><section className="pt-4"><b className="text-[10px] uppercase text-slate-600">Access Control</b><div className="mt-3 space-y-2 text-slate-500"><div className="flex justify-between"><span>Owner</span><b className="text-slate-700">data-eng-team</b></div><div className="flex justify-between"><span>You</span><b className="text-blue-600">View Only</b></div><p className="pt-2 text-[10px] leading-4">Only the owner and authorized members can edit code and raise CR.</p></div></section></div></aside></div></div></aside>{view === 'compare' && <FullScreenComparison aiCode={aiCode} productionCode={effectiveProdCode} onBack={() => setView(null)} onEdit={() => setView('edit')} onDownload={download}/>} {view === 'edit' && <FullScreenEditor aiCode={aiCode} onChange={setAiCode} onBack={() => setView('compare')} onClose={() => setView(null)} onDownload={download}/>}{fullLogsModal && <FullLogsModal job={job} logs={resolution?.log} onClose={() => setFullLogsModal(false)}/>}</>
+}
+
+function FullLogsModal({ job, logs, onClose }) {
+  const [search, setSearch] = useState('')
+  const [copied, setCopied] = useState(false)
+  const defaultLogs = [
+    { ts: "09:55:18", level: "INFO", svc: "SPARK", msg: "Submitting Spark application prod-analytics.spark-driver-failure" },
+    { ts: "09:55:19", level: "INFO", svc: "SPARK", msg: "Allocating 4 driver cores, 16GB executor memory across 8 cluster nodes" },
+    { ts: "09:55:20", level: "INFO", svc: "SPARK", msg: "Starting Spark driver container on node spark-worker-node-04.internal" },
+    { ts: "09:55:21", level: "INFO", svc: "SPARK", msg: "Loading PySpark OCI filesystem handler: com.oracle.bmc.hdfs.BmcFilesystem" },
+    { ts: "09:55:22", level: "WARN", svc: "SPARK", msg: "Initializing Jersey HTTP Client factory for OCI object storage endpoint oci://raw-data@tenancy..." },
+    { ts: "09:55:23", level: "ERROR", svc: "SPARK", msg: "java.lang.NoClassDefFoundError: com/oracle/bmc/http/client/jersey/JerseyClientProperty" },
+    { ts: "09:55:24", level: "ERROR", svc: "SPARK", msg: "ClassNotFoundException: com.oracle.bmc.http.client.jersey.JerseyClientProperty" },
+    { ts: "09:55:25", level: "ERROR", svc: "SPARK", msg: "   at java.net.URLClassLoader.findClass(URLClassLoader.java:382)" },
+    { ts: "09:55:26", level: "ERROR", svc: "SPARK", msg: "   at java.lang.ClassLoader.loadClass(ClassLoader.java:418)" },
+    { ts: "09:55:27", level: "FATAL", svc: "SPARK", msg: "Driver initialization failed. SparkContext shut down unexpectedly." },
+    { ts: "09:55:28", level: "FATAL", svc: "SPARK", msg: "Driver stopped with exitCode 1 from shutdown hook" },
+  ]
+  const displayLogs = (logs && logs.length > 0) ? logs : defaultLogs
+  const filtered = displayLogs.filter(l => 
+    !search || `${l.ts} ${l.level} ${l.svc} ${l.msg}`.toLowerCase().includes(search.toLowerCase())
+  )
+
+  const copyAll = async () => {
+    const text = displayLogs.map(l => `${l.ts} [${l.svc}] ${l.level} ${l.msg}`).join('\n')
+    try { await navigator.clipboard.writeText(text); setCopied(true); setTimeout(() => setCopied(false), 2000) } catch {}
+  }
+
+  const downloadLogs = () => {
+    const text = displayLogs.map(l => `${l.ts} [${l.svc}] ${l.level} ${l.msg}`).join('\n')
+    const blob = new Blob([text], { type: 'text/plain' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url; a.download = `${job.name || 'execution'}_full_logs.txt`; a.click()
+  }
+
+  return (
+    <div className="fixed inset-0 z-[90] grid place-items-center bg-slate-950/80 p-4 backdrop-blur-sm" onClick={e => e.target === e.currentTarget && onClose()}>
+      <div className="flex h-[82vh] w-full max-w-5xl flex-col overflow-hidden rounded-2xl border border-slate-800 bg-[#071421] text-slate-200 shadow-2xl">
+        <header className="flex flex-wrap items-center justify-between border-b border-slate-800 px-6 py-4">
+          <div className="flex items-center gap-3">
+            <div className="grid h-9 w-9 place-items-center rounded-lg border border-slate-700 bg-slate-900 text-blue-400 shadow-inner">
+              <Terminal size={18} />
+            </div>
+            <div>
+              <h2 className="text-sm font-bold text-slate-100">Full Execution Log Trace — {job.name}</h2>
+              <p className="text-[11px] text-slate-400">Run ID: 784512 · Showing full stdout & stderr log stream</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <input
+              type="text"
+              placeholder="Search logs..."
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              className="w-48 rounded-lg border border-slate-700 bg-slate-900/90 px-3 py-1.5 text-xs text-slate-200 outline-none focus:border-blue-500 placeholder:text-slate-500"
+            />
+            <button onClick={copyAll} className="inline-flex items-center gap-1.5 rounded-lg border border-slate-700 bg-slate-900 px-3 py-1.5 text-xs font-semibold text-slate-300 hover:bg-slate-800 cursor-pointer">
+              <FileText size={13} /> {copied ? 'Copied!' : 'Copy'}
+            </button>
+            <button onClick={downloadLogs} className="inline-flex items-center gap-1.5 rounded-lg border border-slate-700 bg-slate-900 px-3 py-1.5 text-xs font-semibold text-slate-300 hover:bg-slate-800 cursor-pointer">
+              <Download size={13} /> Download
+            </button>
+            <button onClick={onClose} className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-800 hover:text-slate-200 cursor-pointer">
+              <X size={18} />
+            </button>
+          </div>
+        </header>
+        <main className="flex-1 overflow-auto p-6 font-mono text-xs leading-6">
+          {filtered.length === 0 ? (
+            <div className="py-12 text-center text-slate-500">No log entries match "{search}"</div>
+          ) : (
+            filtered.map((l, i) => (
+              <div key={i} className="flex gap-4 py-0.5 hover:bg-slate-900/60 rounded px-2">
+                <span className="w-6 select-none text-right text-slate-600">{i + 1}</span>
+                <span className="text-slate-500">{l.ts}</span>
+                <span className="w-16 text-slate-400">[{l.svc}]</span>
+                <span className={`w-14 font-bold ${l.level === 'FATAL' || l.level === 'ERROR' ? 'text-red-400' : l.level === 'WARN' ? 'text-amber-400' : 'text-blue-400'}`}>
+                  {l.level}
+                </span>
+                <span className="flex-1 text-slate-200 whitespace-pre-wrap">{l.msg}</span>
+              </div>
+            ))
+          )}
+        </main>
+      </div>
+    </div>
+  )
 }
 
 function GitDetail({ label,value,link }) { return <div><div className="text-[9px] font-bold uppercase tracking-wide text-slate-400">{label}</div><div className={`mt-1 text-[11px] font-semibold ${link ? 'text-blue-600' : 'text-slate-700'}`}>{value}</div></div> }
