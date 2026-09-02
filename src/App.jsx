@@ -21,6 +21,7 @@ export default function App() {
   })
   const [activePage, setActivePage] = useState('jobs')
   const [pendingJobName, setPendingJobName] = useState(null)
+  const [jobOriginPage, setJobOriginPage] = useState('jobs')
   const [approvedJobNames, setApprovedJobNames] = useState({})
   const resolutionCacheRef = useRef({})
   const [sidebarCollapsed, setSidebarCollapsed] = useState(
@@ -36,9 +37,17 @@ export default function App() {
     document.documentElement.classList.toggle('dark', theme === 'dark')
   }, [theme])
 
-  const openJobFromIncident = (jobName) => {
+  const openJobFromIncident = (jobName, fromPage = 'incidents') => {
     setPendingJobName(jobName)
+    setJobOriginPage(fromPage)
     setActivePage('jobs')
+  }
+
+  const handleReturnFromJob = () => {
+    setPendingJobName(null)
+    if (jobOriginPage && jobOriginPage !== 'jobs') {
+      setActivePage(jobOriginPage)
+    }
   }
 
   const markJobApproved = (jobName) => {
@@ -95,10 +104,24 @@ export default function App() {
             flexDirection: 'column',
           }}
         >
-          {activePage === 'jobs'      && <JobStatus initialJobName={pendingJobName} onConsumeInitialJob={() => setPendingJobName(null)} onApprove={markJobApproved} resolutionCache={resolutionCacheRef} />}
+          {activePage === 'jobs' && (
+            <JobStatus
+              initialJobName={pendingJobName}
+              originPage={jobOriginPage}
+              onConsumeInitialJob={() => setPendingJobName(null)}
+              onReturnToOrigin={handleReturnFromJob}
+              onNavigate={setActivePage}
+              onApprove={markJobApproved}
+              resolutionCache={resolutionCacheRef}
+            />
+          )}
           {activePage === 'dashboard' && <Dashboard />}
-          {['incidents', 'integrations'].includes(activePage) && (
-            <WorkspacePage pageKey={activePage} onOpenJob={openJobFromIncident} approvedJobNames={approvedJobNames} />
+          {['incidents', 'integrations', 'brain', 'runbooks', 'settings'].includes(activePage) && (
+            <WorkspacePage
+              pageKey={activePage}
+              onOpenJob={openJobFromIncident}
+              approvedJobNames={approvedJobNames}
+            />
           )}
         </main>
       </div>
