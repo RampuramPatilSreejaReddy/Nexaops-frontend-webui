@@ -80,9 +80,9 @@ df.show(5)
     const mount = document.createElement('div')
     document.body.appendChild(mount)
     const root = createRoot(mount)
-    root.render(<GitHubPullRequestModal targetRepo={targetRepo} repoUrl={repoUrl} onClose={() => setGithubModal(false)}/>)
+    root.render(<GitHubPullRequestModal targetRepo={connectedRepo} repoUrl={repoUrl} onClose={() => setGithubModal(false)}/>)
     return () => { root.unmount(); mount.remove() }
-  }, [githubModal, targetRepo, repoUrl])
+  }, [githubModal, connectedRepo, repoUrl])
 
   useEffect(() => {
     if (!fullLogsModal) return undefined
