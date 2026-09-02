@@ -89,54 +89,7 @@ function extractHistId(text) {
   return null
 }
 
-function deriveJobDetails(histId, liveData, rawQuery = '') {
-  if (liveData) {
-    return {
-      id: liveData.id || histId,
-      jobName: liveData.job_name || liveData.name || liveData.jobName || `job-pipeline-${histId.replace(/\D/g, '')}`,
-      aiStatus: liveData.ai_status || liveData.aiStatus || 'AI Fix Ready',
-      startTime: liveData.start_time || liveData.startTime || '27-Aug-2026 02:00 am',
-      endTime: liveData.end_time || liveData.endTime || '27-Aug-2026 02:40 am',
-      status: liveData.status || 'Failed (SLA Breached)',
-      duration: liveData.duration || '40 minutes',
-      cluster: liveData.cluster || 'prod-dataproc-us-east2',
-      symptom: liveData.symptom || 'Data pipeline execution error',
-      rca: liveData.rca || 'Schema or dependency mismatch during workflow execution.',
-      jira: liveData.jira || `JIRA-${histId.replace(/^HIST-0*/, '')}`
-    }
-  }
-
-  if (JOB_DATABASE[histId]) {
-    return JOB_DATABASE[histId]
-  }
-
-  // Parse potential job name from user query (e.g. "HIST-000120 risk-batch")
-  const words = rawQuery.replace(/HIST-[A-Z0-9-]+/gi, '').replace(/tell me|about|this|that|job|details|get|the/gi, '').trim().split(/\s+/)
-  const queryName = words.find(w => w.length > 2)
-
-  const numStr = histId.replace(/\D/g, '')
-  const jobName = queryName ? queryName.toLowerCase() : (numStr ? `workflow-pipeline-${numStr}` : 'data-sync-worker')
-  const jira = `JIRA-${numStr || '1023'}`
-
-  return {
-    id: histId,
-    jobName: jobName,
-    aiStatus: 'AI Fix Ready',
-    startTime: '27-Aug-2026 02:00 am',
-    endTime: '27-Aug-2026 02:40 am',
-    status: 'Failed (SLA Breached)',
-    duration: '40 minutes',
-    cluster: 'prod-dataproc-us-east2',
-    symptom: `Execution failure in ${jobName} pipeline`,
-    rca: `Telemetry isolated runtime failure for ${jobName}. Automated remediation generated.`,
-    jira: jira
-  }
-}
-
-function formatHistCard(histId, liveData = null, rawQuery = '') {
-  const repo = localStorage.getItem('nexaops_github_repo') || 'acies-sukhesh/nexaops-test-repo1'
-  const job = deriveJobDetails(histId, liveData, rawQuery)
-
+function buildJobMarkdown(job, repo) {
   return (
     `⚙️ **Job History Details (${job.id})**\n\n` +
     `• **Job Name**: \`${job.jobName}\`\n` +
@@ -150,6 +103,41 @@ function formatHistCard(histId, liveData = null, rawQuery = '') {
     `• **Root Cause (RCA)**: ${job.rca}\n` +
     `• **Linked Jira Ticket**: \`${job.jira}\`\n` +
     `• **Automated Remediation**: Proposed fix generated and available in target repository \`${repo}\`.`
+  )
+}
+
+function formatHistCard(histId, liveData = null, rawQuery = '') {
+  const repo = localStorage.getItem('nexaops_github_repo') || 'acies-sukhesh/nexaops-test-repo1'
+
+  if (liveData) {
+    return buildJobMarkdown({
+      id: liveData.id || histId,
+      jobName: liveData.job_name || liveData.name || liveData.jobName || histId,
+      aiStatus: liveData.ai_status || liveData.aiStatus || 'AI Fix Ready',
+      status: liveData.status || 'Failed (SLA Breached)',
+      startTime: liveData.start_time || liveData.startTime || '27-Aug-2026 02:00 am',
+      endTime: liveData.end_time || liveData.endTime || '27-Aug-2026 02:40 am',
+      duration: liveData.duration || '40 minutes',
+      cluster: liveData.cluster || 'prod-dataproc-us-east2',
+      symptom: liveData.symptom || 'Data pipeline execution error',
+      rca: liveData.rca || 'Schema discrepancy identified by AI isolated trace.',
+      jira: liveData.jira || `JIRA-${histId.replace(/^HIST-0*/, '')}`
+    }, repo)
+  }
+
+  const registered = JOB_DATABASE[histId]
+  if (registered) {
+    return buildJobMarkdown(registered, repo)
+  }
+
+  return (
+    `⚠️ **Job History Record Not Found (${histId})**\n\n` +
+    `I searched your live NexaOps telemetry database and active execution logs, but **\`${histId}\`** is not present in your current workspace database.\n\n` +
+    `• **Active Job History Records in Your Workspace**:\n` +
+    `  1. \`HIST-000089\` — **risk-score-batch** (Failed · SLA Breached · JIRA-RISK-89)\n` +
+    `  2. \`HIST-000152\` — **customer-sync-api** (Failed · Exit code 137 · JIRA-1023)\n` +
+    `  3. \`HIST-000148\` — **spark-driver-failure** (Failed · Classpath Error · JIRA-SPARK-01)\n\n` +
+    `You can ask me for details on any of the active history IDs above!`
   )
 }
 
