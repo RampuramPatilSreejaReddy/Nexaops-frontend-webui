@@ -19,6 +19,15 @@ const PAGE_CONFIG = {
 // ── INCIDENT TABLE DATA ────────────────────────────────────────────────────
 const INCIDENTS_FALLBACK = [
   {
+    id: 'INC-2026-SPARK-01', url: '#inc-spark-01',
+    workflow: 'Spark Cluster Orchestration', jobName: 'spark-driver-failure',
+    assignee: 'Sreeja Patil', assigneeInitials: 'SP',
+    team: 'Data Engineering', manager: 'Suresh Iyer',
+    status: 'Investigating', priority: 'P1', tone: 'red',
+    createdAt: '03-Sep-2026 09:55', updatedAt: '03-Sep-2026 09:58',
+    detail: 'PySpark OCI Jersey client library NoClassDefFoundError failure',
+  },
+  {
     id: 'INC-2048', url: '#inc-2048',
     workflow: 'Customer Master Synchronization', jobName: 'customer-sync-api',
     assignee: 'Meera Rajan', assigneeInitials: 'MR',
@@ -479,6 +488,10 @@ function ConnectIntegrationModal({ onClose, onSave }) {
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 p-4 backdrop-blur-sm" onClick={event => event.target === event.currentTarget && onClose()}>
       <form onSubmit={event => {
         event.preventDefault()
+        if (form.name === 'GitHub' && form.connection) {
+          const repo = form.connection.replace(/^https?:\/\/github\.com\//, '').replace(/\/$/, '')
+          localStorage.setItem('nexaops_github_repo', repo)
+        }
         onSave({
           name: form.name,
           type: form.name,
