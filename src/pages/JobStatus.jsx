@@ -46,7 +46,7 @@ df.show(5)
 
   const [connectedRepo] = useState(() => {
     const saved = localStorage.getItem('nexaops_github_repo')
-    if (!saved) return 'RampuramPatilSreejaReddy/Nexaops-frontend-webui'
+    if (!saved) return 'RampuramPatilSreejaReddy/nexaops-test-repo'
     return saved.replace(/^https?:\/\/github\.com\//, '').replace(/\/$/, '')
   })
   const repoUrl = connectedRepo.startsWith('http') ? connectedRepo : `https://github.com/${connectedRepo}`
