@@ -269,8 +269,8 @@ function IncidentsPage({ config, onOpenJob, approvedJobNames }) {
     const matchP = priorityFilter === 'All' || r.priority === priorityFilter
     return matchQ && matchS && matchP
   })
-  const failedIncidents = rows.filter(row => row.status !== 'Monitoring')
-  const slaBreachIncidents = rows.filter(row => row.status === 'Monitoring')
+  const failedIncidents = rows.filter(row => row.status === 'Investigating' || row.status === 'AI Analysis' || row.status === 'Resolved' || row.status === 'Closed')
+  const slaBreachIncidents = rows.filter(row => row.sla_breach === true || row.detail?.toLowerCase().includes('sla breach'))
 
   const counts = {
     active:   incidentRows.filter(r => ['Investigating','AI Analysis','Monitoring'].includes(r.status)).length,
