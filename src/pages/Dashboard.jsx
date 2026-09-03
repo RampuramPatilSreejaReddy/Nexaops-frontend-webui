@@ -79,22 +79,6 @@ function DashboardFilterPanel({ title, icon, rows, kind }) {
   return <Panel title={title} icon={icon} action={<div className="flex items-center gap-3"><select value={primary} onChange={e => setPrimary(e.target.value)} className="rounded-md border border-slate-200 bg-white px-2 py-1 text-[10px] font-semibold text-slate-600 outline-none">{config.options.map(option => <option key={option}>{option}</option>)}</select><button onClick={() => setViewAll(value => !value)} className="text-[10px] font-semibold text-blue-600">{viewAll ? 'Show less' : 'View all'}</button></div>}><div className={`grid ${kind === 'failing' ? 'grid-cols-[1.5fr_.8fr_.8fr_.65fr]' : kind === 'long' ? 'grid-cols-[1.5fr_.8fr_.8fr_.65fr]' : 'grid-cols-[1.4fr_.7fr_1.2fr_.8fr]'} border-b border-slate-100 pb-2 text-[8px] font-bold uppercase tracking-wide text-slate-500`}>{config.columns.map((column,index) => <button key={column} onClick={() => index === 0 && setSort(sort === 'asc' ? 'desc' : 'asc')} className={`text-left ${index === 0 ? 'hover:text-blue-600' : ''}`}>{column}{index === 0 && ' ↕'}</button>)}</div>{visible.map(({row,index,cpu,minutes}) => <div key={row.job} className={`grid ${kind === 'failing' ? 'grid-cols-[1.5fr_.8fr_.8fr_.65fr]' : kind === 'long' ? 'grid-cols-[1.5fr_.8fr_.8fr_.65fr]' : 'grid-cols-[1.4fr_.7fr_1.2fr_.8fr]'} items-center py-2.5 text-[10px]`}><div><b className="block truncate text-slate-700">{row.job}</b><span className="text-slate-400">{row.workflow}</span></div>{kind === 'failing' ? <><b className="text-slate-600">{Math.max(4,28-index*4)}</b><b className="text-slate-600">{Math.max(5,18-index*3)}%</b><span className="text-slate-500">{metadata[index][1]}</span></> : kind === 'long' ? <><span className="text-slate-500">{['2h','3h','1h 30m','4h','1h'][index]}</span><b className="text-slate-600">{row.runtime}</b><span className="text-slate-500">Running</span></> : <><b className="text-slate-600">{cpu}%</b><span className="text-slate-600">{['Right-size VM','Increase Auto-scaling','Use Spot Instances','Right-size Cluster','Optimize Query'][index]}</span><b className="text-emerald-600">${[18000,12500,9200,8100,6700][index]?.toLocaleString()}/mo</b></>}</div>)}{!visible.length && <div className="py-6 text-center text-[10px] text-slate-400">No jobs match the selected filters.</div>}<div className="mt-2 flex flex-wrap gap-2 border-t border-slate-100 pt-3"><select value={team} onChange={e => setTeam(e.target.value)} aria-label={`Filter ${title} by team`} className="rounded-md border border-slate-200 bg-white px-2 py-1.5 text-[10px] font-semibold text-slate-600 outline-none"><option value="All">Team: All</option><option>Data Engineering</option><option>Analytics</option><option>Machine Learning</option><option>Platform Engineering</option></select><select value={secondary} onChange={e => setSecondary(e.target.value)} aria-label={`Filter ${title} by ${config.secondLabel.toLowerCase()}`} className="rounded-md border border-blue-100 bg-blue-50 px-2 py-1.5 text-[10px] font-semibold text-blue-600 outline-none">{config.second.map(option => <option key={option} value={option}>{config.secondLabel}: {option}</option>)}</select></div><p className="mt-3 text-[10px] text-slate-400">{config.description}</p></Panel>
 }
 
-const fallbackSla = [
-  { job: 'customer-sync-api', workflow: 'CRM → DW', overdue_mins: 134, breach_count: 3 },
-  { job: 'inventory-recon-nightly', workflow: 'Batch', overdue_mins: 105, breach_count: 2 },
-  { job: 'risk-score-batch', workflow: 'BigQuery ML', overdue_mins: 58, breach_count: 1 },
-  { job: 'airflow-dag-reports', workflow: 'Airflow', overdue_mins: 32, breach_count: 1 },
-  { job: 'kafka-consumer-lag', workflow: 'Streaming', overdue_mins: 21, breach_count: 1 },
-]
-
-const fallbackCpu = [
-  { job: 'customer-sync-api', workflow: 'CRM → DW', cpu_pct: 43 },
-  { job: 'inventory-recon-nightly', workflow: 'Batch', cpu_pct: 32 },
-  { job: 'risk-score-batch', workflow: 'BigQuery ML', cpu_pct: 28 },
-  { job: 'payments-etl-daily', workflow: 'ETL', cpu_pct: 19 },
-  { job: 'fraud-detection-stream', workflow: 'Kafka', cpu_pct: 15 },
-]
-
 const schedules = [
   ['inventory-recon-nightly', 'Batch', '01:00 AM', 'In 2h 15m'],
   ['risk-score-batch', 'BigQuery ML', '03:30 AM', 'In 4h 45m'],
@@ -174,15 +158,9 @@ export default function Dashboard() {
     sessionStorage.setItem('nexaops_dashboard_filters', JSON.stringify(filters))
   }, [range, filters])
 
-  const slaRows = sla.length ? sla : fallbackSla
-  const cpuRows = cpu.length ? cpu : fallbackCpu
-  const longRows = long.length ? long : [
-    { job: 'risk-score-batch', workflow: 'BigQuery ML', runtime: '4h 22m', runtime_mins: 262 },
-    { job: 'spark-user-features', workflow: 'Spark', runtime: '3h 26m', runtime_mins: 206 },
-    { job: 'payments-etl-daily', workflow: 'ETL', runtime: '2h 24m', runtime_mins: 144 },
-    { job: 'inventory-recon-nightly', workflow: 'Batch', runtime: '1h 45m', runtime_mins: 105 },
-    { job: 'customer-sync-api', workflow: 'ETL', runtime: '58m', runtime_mins: 58 },
-  ]
+  const slaRows = sla || []
+  const cpuRows = cpu || []
+  const longRows = long || []
   const totalRuns = useMemo(() => report.reduce((sum, row) => sum + (Number(row.total) || 0), 0), [report])
   const successRate = summary?.success_rate || '99.4%'
   const activeWorkflows = summary?.active_workflows || new Set(report.map(row => row.name)).size || 3
