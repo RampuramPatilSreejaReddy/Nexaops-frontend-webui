@@ -160,33 +160,31 @@ const jobToIncident = (job, index = 0, approvedJobNames = {}) => {
   const responder = MOCK_RESPONDERS[index % MOCK_RESPONDERS.length]
   const isApproved = !!approvedJobNames[job.name]
   const isHardFailure = job.status === 'failed'
-  const isRealDemo = job.name === 'spark-driver-failure' || job.id === 'SPARK-LIVE-001' || job.is_real_demo
   const ticket = job.jira_ticket
   return {
-    id: isRealDemo ? 'INC-2026-SPARK-01' : (ticket?.key || `INC-${job.id.slice(0, 8)}`),
-    url: '#',
-    ticketUrl: ticket?.url || null,
-    workflow: isRealDemo ? 'Spark Cluster Orchestration' : (job.workflow || job.type || 'Unknown workflow'),
-    jobName: job.name,
-    assignee: isRealDemo ? 'Meera Rajan' : (ticket?.assignee || responder.assignee),
-    assigneeInitials: isRealDemo
-      ? 'MR'
-      : (ticket?.assignee ? ticket.assignee.split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase() : responder.assigneeInitials),
-    team: isRealDemo ? 'Data Engineering' : (job.team || responder.team),
-    manager: isRealDemo ? 'Manohar' : responder.manager,
-    status: isApproved ? 'Resolved' : (isRealDemo ? 'Investigating' : (isHardFailure ? 'Investigating' : 'Monitoring')),
-    priority: isRealDemo ? 'P1' : (job.sla_breach ? 'P1' : 'P2'),
-    sla_breach: isRealDemo ? true : job.sla_breach,
-    runtime: isRealDemo ? '48m 24s' : job.runtime,
-    sla_target_mins: job.sla_target_mins,
-    sla_overdue_mins: job.sla_overdue_mins,
-    tone: isApproved ? 'green' : (isRealDemo ? 'red' : (job.sla_breach ? 'red' : 'amber')),
-    createdAt: isRealDemo ? '03-Jul-2026 09:55' : (job.start || '—'),
-    updatedAt: isRealDemo ? '03-Jul-2026 09:58' : (job.end || job.start || '—'),
-    detail: isRealDemo
-      ? 'ClassNotFoundException: com.oracle.bmc.http.client.jersey.JerseyClientProperty (Real MobaXterm Trace)'
-      : (isHardFailure ? `${job.type || job.technology || 'Unknown'} failure` : `${job.type || job.technology || 'Unknown'} — SLA breach, job did not fail outright`),
-    isRealDemo,
+  id: ticket?.key || `INC-${job.id.slice(0, 8)}`,
+  url: '#',
+  ticketUrl: ticket?.url || null,
+  workflow: job.workflow || job.type || 'Unknown workflow',
+  jobName: job.name,
+  assignee: ticket?.assignee || responder.assignee,
+  assigneeInitials: ticket?.assignee
+    ? ticket.assignee.split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase()
+    : responder.assigneeInitials,
+  team: job.team || responder.team,
+  manager: responder.manager,
+    status: isApproved ? 'Resolved' : (isHardFailure ? 'Investigating' : 'Monitoring'),
+  priority: job.sla_breach ? 'P1' : 'P2',
+  sla_breach: job.sla_breach,
+  runtime: job.runtime,
+  sla_target_mins: job.sla_target_mins,
+  sla_overdue_mins: job.sla_overdue_mins,
+  tone: isApproved ? 'green' : (job.sla_breach ? 'red' : 'amber'),
+  createdAt: job.start || '—',
+  updatedAt: job.end || job.start || '—',
+    detail: isHardFailure
+      ? `${job.type || job.technology || 'Unknown'} failure`
+      : `${job.type || job.technology || 'Unknown'} — SLA breach, job did not fail outright`,
   }
 }
 
@@ -213,39 +211,12 @@ function IncidentsPage({ config, onOpenJob, approvedJobNames }) {
   const [incidentRows, setIncidentRows] = useState([])
   const [incidentsLoaded, setIncidentsLoaded] = useState(false)
   const [slaDetailRow, setSlaDetailRow] = useState(null)
-
-  const sparkIncident = {
-    id: 'INC-2026-SPARK-01',
-    url: '#',
-    workflow: 'Spark Cluster Orchestration',
-    jobName: 'spark-driver-failure',
-    assignee: 'Meera Rajan',
-    assigneeInitials: 'MR',
-    team: 'Data Engineering',
-    manager: 'Manohar',
-    status: approvedJobNames['spark-driver-failure'] ? 'Resolved' : 'Investigating',
-    priority: 'P1',
-    sla_breach: true,
-    runtime: '48m 24s',
-    tone: approvedJobNames['spark-driver-failure'] ? 'green' : 'red',
-    createdAt: '03-Jul-2026 09:55',
-    updatedAt: '03-Jul-2026 09:58',
-    detail: 'ClassNotFoundException: com.oracle.bmc.http.client.jersey.JerseyClientProperty (Real MobaXterm Trace)',
-    isRealDemo: true,
-  }
-
   useEffect(() => {
     getJobs({ flat: true }).then(({ data }) => {
       const jobs = data?.jobs || []
       const incidentJobs = jobs.filter(j => j.status === 'failed' || j.sla_breach === true)
-      const otherMapped = incidentJobs
-        .filter(j => j.name !== 'spark-driver-failure' && j.id !== 'SPARK-LIVE-001')
-        .map((job, i) => jobToIncident(job, i, approvedJobNames))
-      
-      setIncidentRows([sparkIncident, ...otherMapped])
-    }).catch(() => {
-      setIncidentRows([sparkIncident])
-    }).finally(() => setIncidentsLoaded(true))
+      if (incidentJobs.length) setIncidentRows(incidentJobs.map((job, i) => jobToIncident(job, i, approvedJobNames)))
+    }).catch(() => {}).finally(() => setIncidentsLoaded(true))
   }, [approvedJobNames])
   const [query, setQuery] = useState('')
   const [statusFilter, setStatusFilter] = useState('All')
@@ -261,8 +232,8 @@ function IncidentsPage({ config, onOpenJob, approvedJobNames }) {
     const matchP = priorityFilter === 'All' || r.priority === priorityFilter
     return matchQ && matchS && matchP
   })
-  const failedIncidents = rows.filter(row => row.status !== 'Monitoring')
-  const slaBreachIncidents = rows.filter(row => row.status === 'Monitoring')
+  const failedIncidents = incidentRows.filter(row => row.status !== 'Monitoring')
+  const slaBreachIncidents = incidentRows.filter(row => row.status === 'Monitoring')
 
   const counts = {
     active:   incidentRows.filter(r => ['Investigating','AI Analysis','Monitoring'].includes(r.status)).length,
@@ -270,7 +241,7 @@ function IncidentsPage({ config, onOpenJob, approvedJobNames }) {
     p1:       incidentRows.filter(r => r.priority === 'P1').length,
   }
   const renderIncidentTable = (incidents, onRowOpen) => (
-    <div className="overflow-x-auto bg-white border border-slate-200 rounded-xl shadow-sm"><table className="w-full border-collapse text-xs min-w-[1100px]"><thead><tr className="bg-slate-50 border-b border-slate-200">{['Incident ID', 'Workflow Name', 'Failed Job', 'Assignee', 'Team', 'Manager / Reporting', 'Status', 'Priority', 'Created', 'Last Updated'].map(h => <th key={h} className="px-4 py-3 text-left text-[10px] font-bold uppercase tracking-wide text-slate-500 whitespace-nowrap">{h}</th>)}</tr></thead><tbody className="divide-y divide-slate-100">{!incidentsLoaded ? <IncidentRowsSkeleton/> : incidents.length === 0 ? <tr><td colSpan={10} className="py-12 text-center text-xs text-slate-400">No incidents match the selected filters.</td></tr> : incidents.map(row => <tr key={row.id} onClick={() => onRowOpen(row)} className={['cursor-pointer transition-colors border-l-4', row.isRealDemo ? 'bg-blue-50/60 hover:bg-blue-100/70 border-l-blue-600 ring-1 ring-blue-200/80 font-bold' : (row.status === 'Investigating' ? 'hover:bg-slate-50/70 border-l-red-400' : row.status === 'AI Analysis' ? 'hover:bg-slate-50/70 border-l-violet-400' : row.status === 'Monitoring' ? 'hover:bg-slate-50/70 border-l-blue-400' : 'hover:bg-slate-50/70 border-l-transparent')].join(' ')}><td className="px-4 py-3.5 whitespace-nowrap"><a href={row.url} onClick={e => { e.preventDefault(); onRowOpen(row) }} className={`font-mono font-bold text-blue-600 hover:text-blue-800 hover:underline underline-offset-2 transition-colors ${row.isRealDemo ? 'text-[12px] text-blue-700' : ''}`}>{row.id}</a>{row.isRealDemo && <span className="ml-2 inline-flex items-center gap-1 rounded bg-blue-600 px-1.5 py-0.5 text-[9px] font-bold text-white uppercase tracking-wider animate-pulse">🔥 Real Spark Trace</span>}{row.ticketUrl && <a href={row.ticketUrl} target="_blank" rel="noreferrer" onClick={e => e.stopPropagation()} className="ml-2 text-[10px] font-medium text-blue-500 hover:text-blue-700 hover:underline">View in Jira ↗</a>}</td><td className="px-4 py-3.5"><div className={`truncate max-w-[180px] ${row.isRealDemo ? 'font-bold text-slate-900' : 'font-medium text-slate-700'}`} title={row.workflow}>{row.workflow}</div></td><td className="px-4 py-3.5"><div className={`font-mono text-[11px] truncate max-w-[180px] ${row.isRealDemo ? 'font-bold text-slate-900 text-[12px]' : 'text-slate-600'}`} title={row.jobName}>{row.jobName}</div><div className={`text-[10px] mt-0.5 truncate max-w-[200px] ${row.isRealDemo ? 'font-semibold text-blue-700' : 'text-slate-400'}`}>{row.detail}</div></td><td className="px-4 py-3.5 whitespace-nowrap"><div className="flex items-center gap-2"><span className={['w-6 h-6 rounded-full grid place-items-center text-[9px] font-bold shrink-0', row.tone === 'red' ? 'bg-red-100 text-red-700' : row.tone === 'amber' ? 'bg-amber-100 text-amber-700' : row.tone === 'blue' ? 'bg-blue-100 text-blue-700' : 'bg-emerald-100 text-emerald-700'].join(' ')}>{row.assigneeInitials}</span><span className="text-slate-700 font-medium">{row.assignee}</span></div></td><td className="px-4 py-3.5 whitespace-nowrap"><span className="text-slate-600">{row.team}</span></td><td className="px-4 py-3.5 whitespace-nowrap"><span className="text-slate-600">{row.manager}</span></td><td className="px-4 py-3.5 whitespace-nowrap"><span className={['inline-flex items-center gap-1.5 px-2 py-1 rounded-md border text-[10px] font-semibold', STATUS_STYLE[row.status] || 'bg-slate-100 text-slate-500 border-slate-200'].join(' ')}><span className={['w-1.5 h-1.5 rounded-full', row.status === 'Investigating' ? 'bg-red-500' : row.status === 'AI Analysis' ? 'bg-violet-500' : row.status === 'Monitoring' ? 'bg-blue-500' : row.status === 'Resolved' ? 'bg-emerald-500' : 'bg-slate-400'].join(' ')} />{row.status}</span>{row.status === 'Investigating' && row.sla_breach && <span className="ml-1.5 rounded border border-amber-300 bg-amber-50 px-1.5 py-0.5 text-[9px] font-bold uppercase text-amber-700">SLA Breached</span>}</td><td className="px-4 py-3.5 whitespace-nowrap"><span className={['inline-block px-2 py-0.5 rounded-md border text-[10px] font-bold', PRIORITY_STYLE[row.priority] || 'bg-slate-100 text-slate-500 border-slate-200'].join(' ')}>{row.priority}</span></td><td className="px-4 py-3.5 whitespace-nowrap"><span className="font-mono text-[10px] text-slate-500">{row.createdAt}</span></td><td className="px-4 py-3.5 whitespace-nowrap"><span className="font-mono text-[10px] text-slate-500">{row.updatedAt}</span></td></tr>)}</tbody></table></div>
+    <div className="overflow-x-auto bg-white border border-slate-200 rounded-xl shadow-sm"><table className="w-full border-collapse text-xs min-w-[1100px]"><thead><tr className="bg-slate-50 border-b border-slate-200">{['Incident ID', 'Workflow Name', 'Failed Job', 'Assignee', 'Team', 'Manager / Reporting', 'Status', 'Priority', 'Created', 'Last Updated'].map(h => <th key={h} className="px-4 py-3 text-left text-[10px] font-bold uppercase tracking-wide text-slate-500 whitespace-nowrap">{h}</th>)}</tr></thead><tbody className="divide-y divide-slate-100">{!incidentsLoaded ? <IncidentRowsSkeleton/> : incidents.length === 0 ? <tr><td colSpan={10} className="py-12 text-center text-xs text-slate-400">No incidents match the selected filters.</td></tr> : incidents.map(row => <tr key={row.id} onClick={() => onRowOpen(row)} className={['cursor-pointer transition-colors hover:bg-slate-50/70 border-l-2', row.status === 'Investigating' ? 'border-l-red-400' : row.status === 'AI Analysis' ? 'border-l-violet-400' : row.status === 'Monitoring' ? 'border-l-blue-400' : 'border-l-transparent'].join(' ')}><td className="px-4 py-3.5 whitespace-nowrap"><a href={row.url} onClick={e => { e.preventDefault(); onRowOpen(row) }} className="font-mono font-semibold text-blue-600 hover:text-blue-800 hover:underline underline-offset-2 transition-colors">{row.id}</a>{row.ticketUrl && <a href={row.ticketUrl} target="_blank" rel="noreferrer" onClick={e => e.stopPropagation()} className="ml-1.5 text-[10px] font-medium text-blue-500 hover:text-blue-700 hover:underline">View in Jira ↗</a>}</td><td className="px-4 py-3.5"><div className="font-medium text-slate-700 truncate max-w-[180px]" title={row.workflow}>{row.workflow}</div></td><td className="px-4 py-3.5"><div className="font-mono text-slate-600 text-[11px] truncate max-w-[160px]" title={row.jobName}>{row.jobName}</div><div className="text-[10px] text-slate-400 mt-0.5 truncate max-w-[160px]">{row.detail}</div></td><td className="px-4 py-3.5 whitespace-nowrap"><div className="flex items-center gap-2"><span className={['w-6 h-6 rounded-full grid place-items-center text-[9px] font-bold shrink-0', row.tone === 'red' ? 'bg-red-100 text-red-700' : row.tone === 'amber' ? 'bg-amber-100 text-amber-700' : row.tone === 'blue' ? 'bg-blue-100 text-blue-700' : 'bg-emerald-100 text-emerald-700'].join(' ')}>{row.assigneeInitials}</span><span className="text-slate-700 font-medium">{row.assignee}</span></div></td><td className="px-4 py-3.5 whitespace-nowrap"><span className="text-slate-600">{row.team}</span></td><td className="px-4 py-3.5 whitespace-nowrap"><span className="text-slate-600">{row.manager}</span></td><td className="px-4 py-3.5 whitespace-nowrap"><span className={['inline-flex items-center gap-1.5 px-2 py-1 rounded-md border text-[10px] font-semibold', STATUS_STYLE[row.status] || 'bg-slate-100 text-slate-500 border-slate-200'].join(' ')}><span className={['w-1.5 h-1.5 rounded-full', row.status === 'Investigating' ? 'bg-red-500' : row.status === 'AI Analysis' ? 'bg-violet-500' : row.status === 'Monitoring' ? 'bg-blue-500' : row.status === 'Resolved' ? 'bg-emerald-500' : 'bg-slate-400'].join(' ')} />{row.status}</span>{row.status === 'Investigating' && row.sla_breach && <span className="ml-1.5 rounded border border-amber-300 bg-amber-50 px-1.5 py-0.5 text-[9px] font-bold uppercase text-amber-700">SLA Breached</span>}</td><td className="px-4 py-3.5 whitespace-nowrap"><span className={['inline-block px-2 py-0.5 rounded-md border text-[10px] font-bold', PRIORITY_STYLE[row.priority] || 'bg-slate-100 text-slate-500 border-slate-200'].join(' ')}>{row.priority}</span></td><td className="px-4 py-3.5 whitespace-nowrap"><span className="font-mono text-[10px] text-slate-500">{row.createdAt}</span></td><td className="px-4 py-3.5 whitespace-nowrap"><span className="font-mono text-[10px] text-slate-500">{row.updatedAt}</span></td></tr>)}</tbody></table></div>
   )
 
   return (
@@ -335,7 +306,7 @@ function IncidentsPage({ config, onOpenJob, approvedJobNames }) {
       </section>
 
       <section className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm"><div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3"><div className="flex items-center gap-2 text-sm font-semibold text-slate-800"><AlertTriangle size={16} className="text-blue-600" />Incident filters<span className="text-[11px] font-semibold bg-slate-100 text-slate-500 px-2 py-0.5 rounded-md ml-1">{rows.length}</span></div><div className="flex flex-wrap items-center gap-2"><div className="relative"><Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" /><input value={query} onChange={e => setQuery(e.target.value)} placeholder="Search incidents…" className="h-8 w-52 pl-8 pr-3 text-xs border border-slate-200 rounded-lg bg-slate-50 outline-none focus:border-blue-400 transition-colors" /></div><select value={statusFilter} onChange={e => setStatusFilter(e.target.value)} className="h-8 rounded-lg border border-slate-200 bg-white px-2.5 text-xs font-medium text-slate-600 outline-none focus:border-blue-400">{statuses.map(s => <option key={s}>{s}</option>)}</select><select value={priorityFilter} onChange={e => setPriorityFilter(e.target.value)} className="h-8 rounded-lg border border-blue-200 bg-blue-50 px-2.5 text-xs font-semibold text-blue-700 outline-none focus:border-blue-400">{priorities.map(p => <option key={p}>{p}</option>)}</select></div></div></section>
-      <section><h3 className="mb-2 flex items-center gap-2 text-sm font-bold text-slate-800">Failed <span className="rounded-md bg-red-50 px-2 py-0.5 text-xs font-semibold text-red-600">{failedIncidents.length}</span></h3>{renderIncidentTable(failedIncidents, row => onOpenJob?.(row.jobName, 'incidents'))}</section>
+      <section><h3 className="mb-2 flex items-center gap-2 text-sm font-bold text-slate-800">Failed <span className="rounded-md bg-red-50 px-2 py-0.5 text-xs font-semibold text-red-600">{failedIncidents.length}</span></h3>{renderIncidentTable(failedIncidents, row => onOpenJob?.(row.jobName))}</section>
       <section className="mt-6"><h3 className="mb-2 flex items-center gap-2 text-sm font-bold text-slate-800">SLA Breach <span className="rounded-md bg-amber-50 px-2 py-0.5 text-xs font-semibold text-amber-600">{slaBreachIncidents.length}</span></h3>{renderIncidentTable(slaBreachIncidents, row => setSlaDetailRow(row))}</section>
       {slaDetailRow && (
         <SlaBreachDetail
