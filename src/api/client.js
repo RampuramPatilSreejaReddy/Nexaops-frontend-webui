@@ -20,7 +20,8 @@ client.interceptors.response.use(
   (err) => {
     if (err.response?.status === 401 && !err.config?.url?.includes('/auth/login')) {
       localStorage.removeItem('nexaops_token')
-      window.location.href = '/'
+      localStorage.removeItem('nexaops_user')
+      window.location.reload()
     }
     return Promise.reject(err)
   }

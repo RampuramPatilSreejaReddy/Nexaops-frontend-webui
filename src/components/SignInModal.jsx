@@ -2,7 +2,7 @@ import React, { useState } from 'react'
 import { Building2, Eye, EyeOff, Globe2, LockKeyhole, LogIn, Mail, ShieldCheck, X } from 'lucide-react'
 import { login } from '../api/auth.js'
 
-export default function SignInModal({ onClose, onSuccess }) {
+export default function SignInModal({ onClose, onSuccess, isBlocking = false }) {
   const [email,    setEmail]    = useState('')
   const [password, setPassword] = useState('')
   const [showPwd,  setShowPwd]  = useState(false)
@@ -30,13 +30,13 @@ export default function SignInModal({ onClose, onSuccess }) {
 
   return (
     <div
-      onClick={e => e.target === e.currentTarget && onClose()}
+      onClick={e => !isBlocking && e.target === e.currentTarget && onClose && onClose()}
       style={{
-        position: 'fixed', inset: 0, zIndex: 50,
+        position: 'fixed', inset: 0, zIndex: 999,
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         padding: 16,
-        background: 'rgba(10,16,35,0.72)',
-        backdropFilter: 'blur(4px)',
+        background: isBlocking ? 'rgba(10,16,35,0.88)' : 'rgba(10,16,35,0.72)',
+        backdropFilter: 'blur(8px)',
       }}
     >
       <div
@@ -44,22 +44,24 @@ export default function SignInModal({ onClose, onSuccess }) {
         style={{
           position: 'relative', width: '100%', maxWidth: 440,
           background: '#fff', borderRadius: 20,
-          boxShadow: '0 32px 80px rgba(10,22,64,0.30), 0 0 0 1px rgba(37,99,235,0.1)',
+          boxShadow: '0 32px 80px rgba(10,22,64,0.40), 0 0 0 1px rgba(37,99,235,0.15)',
           overflow: 'hidden',
         }}
       >
         {/* Top accent */}
         <div style={{ height: 3, background: 'linear-gradient(90deg, #3B82F6, #6366F1)', flexShrink: 0 }} />
 
-        {/* Close */}
-        <button
-          onClick={onClose}
-          style={{ position: 'absolute', top: 14, right: 14, width: 30, height: 30, borderRadius: 8, border: 'none', background: 'transparent', cursor: 'pointer', color: '#94A3B8', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-          onMouseEnter={e => { e.currentTarget.style.background = '#F1F5F9'; e.currentTarget.style.color = '#475569' }}
-          onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#94A3B8' }}
-        >
-          <X size={15} />
-        </button>
+        {/* Close button only if not blocking */}
+        {!isBlocking && onClose && (
+          <button
+            onClick={onClose}
+            style={{ position: 'absolute', top: 14, right: 14, width: 30, height: 30, borderRadius: 8, border: 'none', background: 'transparent', cursor: 'pointer', color: '#94A3B8', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+            onMouseEnter={e => { e.currentTarget.style.background = '#F1F5F9'; e.currentTarget.style.color = '#475569' }}
+            onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#94A3B8' }}
+          >
+            <X size={15} />
+          </button>
+        )}
 
         <div style={{ padding: '28px 32px 32px' }}>
           {/* Logo */}

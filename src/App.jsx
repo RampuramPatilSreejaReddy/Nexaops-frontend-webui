@@ -11,8 +11,13 @@ export default function App() {
     () => localStorage.getItem('nexaops_theme') === 'dark' ? 'dark' : 'light'
   )
   const [user, setUser] = useState(() => {
-    try { return JSON.parse(localStorage.getItem('nexaops_user')) || null }
-    catch { return null }
+    try {
+      const token = localStorage.getItem('nexaops_token')
+      const stored = JSON.parse(localStorage.getItem('nexaops_user'))
+      return (token && stored) ? stored : null
+    } catch {
+      return null
+    }
   })
   const [showSignIn, setShowSignIn] = useState(false)
   const [activePage, setActivePage] = useState('jobs')
@@ -31,6 +36,7 @@ export default function App() {
     localStorage.setItem('nexaops_theme', theme)
     document.documentElement.classList.toggle('dark', theme === 'dark')
   }, [theme])
+
   const openJobFromIncident = (jobName) => {
     setPendingJobName(jobName)
     setActivePage('jobs')
@@ -38,6 +44,32 @@ export default function App() {
   const markJobApproved = (jobName) => {
     setApprovedJobNames(prev => ({ ...prev, [jobName]: true }))
   }
+
+  // Auth guard: If user is signed out, block access to the entire application
+  if (!user) {
+    return (
+      <div
+        className={`app-theme ${theme === 'dark' ? 'dark' : ''}`}
+        style={{
+          display: 'flex',
+          height: '100vh',
+          width: '100vw',
+          alignItems: 'center',
+          justifyContent: 'center',
+          background: theme === 'dark' ? '#0A0F1D' : '#0F172A',
+        }}
+      >
+        <SignInModal
+          isBlocking={true}
+          onSuccess={(loggedInUser) => {
+            localStorage.setItem('nexaops_user', JSON.stringify(loggedInUser))
+            setUser(loggedInUser)
+          }}
+        />
+      </div>
+    )
+  }
+
   return (
     <div
       className={`app-theme ${theme === 'dark' ? 'dark' : ''}`}
