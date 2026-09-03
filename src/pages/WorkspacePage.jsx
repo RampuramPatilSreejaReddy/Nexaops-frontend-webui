@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import { getJobs } from '../api/jobs.js'
+import { getIncidents } from '../api/incidents.js'
 import SlaBreachDetail from '../components/SlaBreachDetail.jsx'
 import {
   Activity, AlertTriangle, ArrowUpRight, BookOpen, Bot, Check, CheckCircle2, ChevronRight,
@@ -212,11 +213,24 @@ function IncidentsPage({ config, onOpenJob, approvedJobNames }) {
   const [incidentsLoaded, setIncidentsLoaded] = useState(false)
   const [slaDetailRow, setSlaDetailRow] = useState(null)
   useEffect(() => {
-    getJobs({ flat: true }).then(({ data }) => {
-      const jobs = data?.jobs || []
-      const incidentJobs = jobs.filter(j => j.status === 'failed' || j.sla_breach === true)
-      if (incidentJobs.length) setIncidentRows(incidentJobs.map((job, i) => jobToIncident(job, i, approvedJobNames)))
-    }).catch(() => {}).finally(() => setIncidentsLoaded(true))
+    getIncidents().then(({ data }) => {
+      const incs = data?.incidents || []
+      if (incs.length) {
+        setIncidentRows(incs.map(inc => ({
+          ...inc,
+          status: approvedJobNames[inc.jobName] ? 'Resolved' : inc.status,
+          tone: inc.priority === 'P1' ? 'red' : 'amber'
+        })))
+      } else {
+        throw new Error('No incidents from API')
+      }
+    }).catch(() => {
+      getJobs({ flat: true }).then(({ data }) => {
+        const jobs = data?.jobs || []
+        const incidentJobs = jobs.filter(j => j.status === 'failed' || j.sla_breach === true)
+        if (incidentJobs.length) setIncidentRows(incidentJobs.map((job, i) => jobToIncident(job, i, approvedJobNames)))
+      }).catch(() => {})
+    }).finally(() => setIncidentsLoaded(true))
   }, [approvedJobNames])
   const [query, setQuery] = useState('')
   const [statusFilter, setStatusFilter] = useState('All')
